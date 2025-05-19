@@ -16,7 +16,7 @@ app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.DEBUG)
 
-# SMTP & OpenAI config
+# SMTP & OpenAI setup
 SMTP_SERVER   = "smtp.gmail.com"
 SMTP_PORT     = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
@@ -28,7 +28,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 
 def send_email(html_body: str):
     msg = MIMEText(html_body, 'html')
-    msg["Subject"] = "New Health Check Submission"
+    msg["Subject"] = "New Global Health Insights Submission"
     msg["From"]    = SMTP_USERNAME
     msg["To"]      = SMTP_USERNAME
     try:
@@ -37,7 +37,7 @@ def send_email(html_body: str):
             smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
             smtp.send_message(msg)
         app.logger.info("✅ Email sent.")
-    except Exception:
+    except:
         app.logger.exception("❌ Email failed.")
 
 @app.route("/health_analyze", methods=["POST"])
@@ -56,51 +56,61 @@ def health_analyze():
         referrer  = data.get("referrer","").strip()
         angel     = data.get("angel","").strip()
 
-        # 2) Compute age & BMI
+        # 2) Compute age from DOB
         try:
-            bd = datetime.fromisoformat(dob_str)
+            bd    = datetime.fromisoformat(dob_str)
             today = datetime.today()
-            age = today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
+            age   = today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
         except:
             age = None
-        bmi = round(weight / ((height/100)**2), 1) if height>0 else None
 
-        # 3) Build metrics in Python (no JSON-loading from GPT)
-        #    You can tune these thresholds as desired.
+        # 3) Compute metrics in Python
+        bmi   = round(weight / ((height/100)**2),1) if height>0 else None
+        syst  = random.randint(110,160)
+        chol  = random.randint(150,260)
+
         metrics = [
-            {
-              "title": "BMI Status",
-              "labels": ["You","Ideal (22)","High-Risk (30)"],
-              "values": [bmi or 0, 22, 30]
-            },
-            {
-              "title": "BP Risk Level",
-              "labels": ["You","Optimal (120/80)","High Risk"],
-              "values": [
-                random.randint(110, 160),
-                120,
-                140
-              ]
-            },
-            {
-              "title": "Cholesterol Risk",
-              "labels": ["You","Optimal (<200)","High Risk"],
-              "values": [
-                random.randint(150, 260),
-                200,
-                240
-              ]
-            }
+            {"title":"BMI Status",
+             "labels":[f"You (Age {age})","Ideal (22)","High-Risk (30)"],
+             "values":[bmi or 0,22,30]},
+            {"title":"Blood Pressure (mmHg)",
+             "labels":[f"You (Age {age})","Optimal (120/80)","High Risk (140/90)"],
+             "values":[syst,120,140]},
+            {"title":"Cholesterol (mg/dL)",
+             "labels":[f"You (Age {age})","Optimal (<200)","High Risk (240+)"],
+             "values":[chol,200,240]}
         ]
 
-        # 4) Ask GPT for analysis text only
+        # 4) GPT for analysis—inject dynamic demographics
         prompt = f"""
-You are a friendly health consultant.
-Please provide a concise, 3-step analysis and recommendations for:
+You are generating a GLOBAL HEALTH INSIGHTS report for a generic person of:
+- Age: {age}
+- Gender: {gender}
+- Country: {country}
 
-Patient: {name}, Age {age}, Gender {gender}, Country {country}
-BMI: {bmi}, Main Concern: {condition}
+Their metrics are:
+- BMI: {bmi}
+- Blood Pressure: {syst} mmHg
+- Cholesterol: {chol} mg/dL
+
+Main Concern: {condition}
 Details: {details}
+
+Please output a **markdown** report with these sections:
+
+### Demographics
+List age, gender, and country.
+
+### Metrics Table
+Describe each metric with the labels and values.
+
+### Comparison with Regional & Global Trends
+One paragraph comparing these values to typical regional/global benchmarks.
+
+### 🔍 Key Findings
+Three bullet points summarizing the insights.
+
+Do **not** mention the person’s name or any identifying info.
 """
         resp = client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -108,19 +118,16 @@ Details: {details}
         )
         analysis = resp.choices[0].message.content.strip()
 
-        # 5) Send email summary
+        # 5) Email summary
         html = (
-            f"<html><body><h2>New Health Submission</h2>"
-            f"<p>👤 {name}<br>🎂 {dob_str} (Age {age})<br>⚧️ {gender}<br>"
-            f"📏 {height}cm  ⚖️ {weight}kg  🌍 {country}<br>"
-            f"📌 Concern: {condition}<br>📝 {details}<br>"
-            f"💬 Referrer: {referrer}<br>👼 Angel: {angel}</p>"
-            f"<h3>Analysis</h3><p>{analysis}</p>"
-            f"</body></html>"
+            "<html><body style='font-family:sans-serif;color:#333'>"
+            "<h2>🌐 New Global Health Insights Request</h2>"
+            f"<pre style='white-space:pre-wrap'>{analysis}</pre>"
+            "</body></html>"
         )
         send_email(html)
 
-        # 6) Return JSON
+        # 6) Return JSON payload
         return jsonify({"metrics": metrics, "analysis": analysis})
 
     except Exception as e:
