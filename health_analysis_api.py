@@ -12,7 +12,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
 
-# ── Flask Setup ─────────────────────────────────────────────────────────────
+# ── Flask & Logging Setup ────────────────────────────────────────────────────
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.DEBUG)
@@ -27,7 +27,7 @@ if not OPENAI_API_KEY:
     raise RuntimeError("OPENAI_API_KEY environment variable is not set.")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# ── Condition‐Specific Approaches ─────────────────────────────────────────────
+# ── Static Approaches for Known Conditions ────────────────────────────────────
 CONDITION_APPROACHES = {
     "High Blood Pressure": [
         "Adopt a DASH-style diet rich in fruits, vegetables, and low-fat dairy.",
@@ -53,11 +53,6 @@ CONDITION_APPROACHES = {
         "Use gentle, fragrance-free cleansers and moisturizers.",
         "Incorporate a dermatologist-recommended topical (e.g. ceramides).",
         "Maintain a balanced diet rich in antioxidants."
-    ],
-    "Other": [
-        "Maintain a balanced diet and regular exercise.",
-        "Ensure adequate sleep (7–9 hours/night).",
-        "Stay hydrated and manage stress."
     ]
 }
 
@@ -67,7 +62,6 @@ def send_email(html_body: str):
     msg["Subject"] = "New Global Health Insights Submission"
     msg["From"]    = SMTP_USERNAME
     msg["To"]      = SMTP_USERNAME
-
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as smtp:
             smtp.starttls()
@@ -81,30 +75,27 @@ def send_email(html_body: str):
 def health_analyze():
     data = request.get_json(force=True)
     try:
-        # 1) Extract & sanitize inputs
-        name      = data.get("name", "").strip()
-        dob_str   = data.get("dob", "")
-        gender    = data.get("gender", "").strip()
-        height    = float(data.get("height", 0))
-        weight    = float(data.get("weight", 0))
-        country   = data.get("country", "").strip()
-        condition = data.get("condition", "").strip()
-        details   = data.get("details", "").strip()
-        referrer  = data.get("referrer", "").strip()
-        angel     = data.get("angel", "").strip()
+        # 1) Extract & parse inputs
+        dob_str   = data.get("dob","")
+        gender    = data.get("gender","").strip()
+        height    = float(data.get("height",0))
+        weight    = float(data.get("weight",0))
+        country   = data.get("country","").strip()
+        condition = data.get("condition","").strip()
+        details   = data.get("details","").strip()
 
-        # 2) Compute age from DOB
+        # 2) Compute age
         try:
             bd    = datetime.fromisoformat(dob_str)
             today = datetime.today()
             age   = today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
-        except Exception:
+        except:
             age = None
 
-        # 3) Compute metrics in Python
-        bmi  = round(weight / ((height / 100) ** 2), 1) if height > 0 else None
-        syst = random.randint(110, 160)
-        chol = random.randint(150, 260)
+        # 3) Compute metrics
+        bmi  = round(weight / ((height/100)**2),1) if height>0 else None
+        syst = random.randint(110,160)
+        chol = random.randint(150,260)
 
         metrics = [
             {
@@ -124,18 +115,32 @@ def health_analyze():
             }
         ]
 
-        # 4) Build condition‐specific recommendations
-        approaches = CONDITION_APPROACHES.get(condition, CONDITION_APPROACHES["Other"])
-        approach_md = "\n".join(f"- {a}" for a in approaches)
+        # 4) Build or fetch recommendations
+        if condition in CONDITION_APPROACHES:
+            approach_list = CONDITION_APPROACHES[condition]
+            approach_md = "\n".join(f"- {a}" for a in approach_list)
+        else:
+            # Dynamic GPT-generated suggestions for "Other"
+            sug_prompt = f"""
+You are a health expert. Provide exactly three constructive, evidence-based recommendations 
+for a {age}-year-old {gender.lower()} living in {country} with the following health concern:
+"{details}". Output as bullet points.
+"""
+            sug_resp = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role":"user","content":sug_prompt}]
+            )
+            # Assume the GPT reply is bullet points already
+            approach_md = sug_resp.choices[0].message.content.strip()
 
-        # 5) Build GPT prompt
-        prompt = f"""
+        # 5) Build main GPT prompt for analysis
+        analysis_prompt = f"""
 You are generating a GLOBAL HEALTH INSIGHTS report for a generic person of:
 - Age: {age}
 - Gender: {gender}
 - Country: {country}
 
-Their metrics are:
+Their metrics:
 - BMI: {bmi}
 - Blood Pressure: {syst} mmHg
 - Cholesterol: {chol} mg/dL
@@ -146,40 +151,38 @@ Details: {details}
 Please output a **markdown** report with these sections:
 
 ### Demographics
-List age, gender, and country.
+- Age: {age}
+- Gender: {gender}
+- Country: {country}
 
 ### Metrics Table
-Describe each metric with the labels and values.
+Describe each metric with its labels and values.
 
 ### Comparison with Regional & Global Trends
-One paragraph comparing these values to typical regional/global benchmarks.
+One concise paragraph.
 
 ### 🔍 Key Findings
-Three bullet points summarizing the insights.
+Three bullet points.
 
-### 🔧 Recommended Approaches for Similar Age (Age {age}), {gender}, in {country} and Globally
+### 🔧 Recommended Approaches
 {approach_md}
 
-Do **not** mention the person’s name or any identifying info.
+Do **not** mention any personal identifiers.
 """
-
-        # 6) Call OpenAI for analysis
-        response = client.chat.completions.create(
+        resp = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role":"user","content":analysis_prompt}]
         )
-        analysis = response.choices[0].message.content.strip()
+        analysis = resp.choices[0].message.content.strip()
 
-        # 7) Send email summary
-        email_html = (
-            "<html><body style='font-family:sans-serif;color:#333'>"
-            "<h2>🌐 New Global Health Insights Request</h2>"
-            f"<pre style='white-space:pre-wrap'>{analysis}</pre>"
-            "</body></html>"
-        )
+        # 6) Send email summary
+        email_html = f"<html><body style='font-family:sans-serif;color:#333'>" \
+                     f"<h2>🌐 New Global Health Insights Request</h2>" \
+                     f"<pre style='white-space:pre-wrap'>{analysis}</pre>" \
+                     f"</body></html>"
         send_email(email_html)
 
-        # 8) Return JSON to widget
+        # 7) Return JSON
         return jsonify({"metrics": metrics, "analysis": analysis})
 
     except Exception as e:
