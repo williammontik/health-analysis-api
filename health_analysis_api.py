@@ -1,146 +1,101 @@
-# health_analysis_api.py
-
-import os
-import json
-import smtplib
-import logging
-import random
+import os, json, smtplib, logging, random
 from datetime import datetime
 from email.mime.text import MIMEText
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
 
-# ── Flask & Logging Setup ────────────────────────────────────────────────────
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.DEBUG)
 
-# ── SMTP & OpenAI Setup ─────────────────────────────────────────────────────
 SMTP_SERVER   = "smtp.gmail.com"
 SMTP_PORT     = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise RuntimeError("OPENAI_API_KEY environment variable is not set.")
+OPENAI_API_KEY= os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY: raise RuntimeError("OPENAI_API_KEY not set")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# ── Static Approaches for Known Conditions ────────────────────────────────────
-CONDITION_APPROACHES = {
-    "High Blood Pressure": [
-        "Adopt a DASH-style diet rich in fruits, vegetables, and low-fat dairy.",
-        "Engage in at least 150 minutes/week of moderate aerobic exercise.",
-        "Practice daily stress-reduction (e.g. meditation or yoga)."
-    ],
-    "Low Blood Pressure": [
-        "Increase dietary salt intake within safe limits.",
-        "Stay well-hydrated and include small, frequent meals.",
-        "Add gentle strength training to improve vascular tone."
-    ],
-    "Diabetes": [
-        "Monitor carbohydrate portions and choose low-GI foods.",
-        "Incorporate resistance training 2–3 times/week.",
-        "Check blood sugar regularly and adjust diet accordingly."
-    ],
-    "High Cholesterol": [
-        "Choose plant-based proteins and reduce saturated fats.",
-        "Add 30 minutes of brisk walking daily.",
-        "Include omega-3 rich foods (e.g. fatty fish, flaxseeds)."
-    ],
-    "Skin Problem": [
-        "Use gentle, fragrance-free cleansers and moisturizers.",
-        "Incorporate a dermatologist-recommended topical (e.g. ceramides).",
-        "Maintain a balanced diet rich in antioxidants."
-    ]
-}
-
-def send_email(html_body: str):
-    """Send HTML email containing the AI report and submission details."""
-    msg = MIMEText(html_body, 'html')
-    msg["Subject"] = "New Global Health Insights Submission"
-    msg["From"]    = SMTP_USERNAME
-    msg["To"]      = SMTP_USERNAME
+def send_email(html):
+    msg=MIMEText(html,'html')
+    msg["Subject"]="New Global Health Insights Submission"
+    msg["From"]=SMTP_USERNAME; msg["To"]=SMTP_USERNAME
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as smtp:
-            smtp.starttls()
-            smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
-            smtp.send_message(msg)
-        app.logger.info("✅ Email sent successfully.")
+        with smtplib.SMTP(SMTP_SERVER,SMTP_PORT) as s:
+            s.starttls(); s.login(SMTP_USERNAME,SMTP_PASSWORD); s.send_message(msg)
     except Exception:
-        app.logger.exception("❌ Failed to send email.")
+        app.logger.exception("Email failed")
 
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
-    data = request.get_json(force=True)
+    d = request.get_json(force=True)
+    # Common extraction
+    dob, gender, height, weight = d.get("dob",""), d.get("gender",""), float(d.get("height",0)), float(d.get("weight",0))
+    country, condition, details = d.get("country",""), d.get("condition",""), d.get("details","")
+    lang = d.get("lang","en").lower()
+    # Compute age & metrics
     try:
-        # 1) Extract & parse inputs
-        dob_str   = data.get("dob","")
-        gender    = data.get("gender","").strip()
-        height    = float(data.get("height",0))
-        weight    = float(data.get("weight",0))
-        country   = data.get("country","").strip()
-        condition = data.get("condition","").strip()
-        details   = data.get("details","").strip()
+        bd=datetime.fromisoformat(dob); today=datetime.today()
+        age=today.year-bd.year-((today.month,today.day)<(bd.month,bd.day))
+    except: age=None
+    bmi=round(weight/((height/100)**2),1) if height>0 else None
+    syst=random.randint(110,160); chol=random.randint(150,260)
+    labels = [f"Similar Age (Age {age})","Ideal","High-Risk"]
+    metrics=[
+      {"title":"BMI Status","labels":[f"Similar Age (Age {age})","Ideal (22)","High-Risk (30)"],"values":[bmi or 0,22,30]},
+      {"title":"Blood Pressure","labels":[f"Similar Age (Age {age})","Optimal","High-Risk"],"values":[syst,120,140]},
+      {"title":"Cholesterol","labels":[f"Similar Age (Age {age})","Optimal","High-Risk"],"values":[chol,200,240]}
+    ]
 
-        # 2) Compute age
-        try:
-            bd    = datetime.fromisoformat(dob_str)
-            today = datetime.today()
-            age   = today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
-        except:
-            age = None
+    # Build prompt per language
+    if lang=="zh":
+        header="您正在查看一份全球健康洞察报告"
+        prompt=f"""
+生成一份面向 30 岁左右同龄{gender}在{country}的全球健康洞察报告。
+指标：
+- BMI：{bmi}
+- 血压：{syst} mmHg
+- 胆固醇：{chol} mg/dL
+主要关注：{condition}
+详细信息：{details}
 
-        # 3) Compute metrics
-        bmi  = round(weight / ((height/100)**2),1) if height>0 else None
-        syst = random.randint(110,160)
-        chol = random.randint(150,260)
-
-        metrics = [
-            {
-                "title": "BMI Status",
-                "labels": [f"Similar Age (Age {age})", "Ideal (22)", "High-Risk (30)"],
-                "values": [bmi or 0, 22, 30]
-            },
-            {
-                "title": "Blood Pressure (mmHg)",
-                "labels": [f"Similar Age (Age {age})", "Optimal (120/80)", "High-Risk (140/90)"],
-                "values": [syst, 120, 140]
-            },
-            {
-                "title": "Cholesterol (mg/dL)",
-                "labels": [f"Similar Age (Age {age})", "Optimal (<200)", "High-Risk (240+)"],
-                "values": [chol, 200, 240]
-            }
-        ]
-
-        # 4) Build or fetch recommendations
-        if condition in CONDITION_APPROACHES:
-            approach_list = CONDITION_APPROACHES[condition]
-            approach_md = "\n".join(f"- {a}" for a in approach_list)
-        else:
-            # Dynamic GPT-generated suggestions for "Other"
-            sug_prompt = f"""
-You are a health expert. Provide exactly three constructive, evidence-based recommendations 
-for a {age}-year-old {gender.lower()} living in {country} with the following health concern:
-"{details}". Output as bullet points.
+请输出 Markdown，包含：
+1. 人口统计（年龄/性别/国家）
+2. 指标表格
+3. 区域 vs 全球 比较段落
+4. 🔍 关键发现 3 点
+5. 🔧 建议措施 3 条
+不要提及个人信息。
 """
-            sug_resp = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role":"user","content":sug_prompt}]
-            )
-            # Assume the GPT reply is bullet points already
-            approach_md = sug_resp.choices[0].message.content.strip()
+    elif lang=="tw":
+        header="您正在查看一份全球健康洞察報告"
+        prompt=f"""
+生成一份面向 30 歲左右同齡{gender}在{country}的全球健康洞察報告。
+指標：
+- BMI：{bmi}
+- 血壓：{syst} mmHg
+- 膽固醇：{chol} mg/dL
+主要關注：{condition}
+詳細信息：{details}
 
-        # 5) Build main GPT prompt for analysis
-        analysis_prompt = f"""
-You are generating a GLOBAL HEALTH INSIGHTS report for a generic person of:
+請輸出 Markdown，包含：
+1. 人口統計（年齡/性別/國家）
+2. 指標表格
+3. 區域 vs 全球 比較段落
+4. 🔍 關鍵發現 3 點
+5. 🔧 建議措施 3 條
+不要提及個人信息。
+"""
+    else:
+        header="You are viewing a Global Health Insights report"
+        prompt=f"""
+Generate a GLOBAL HEALTH INSIGHTS report for a generic person of:
 - Age: {age}
 - Gender: {gender}
 - Country: {country}
 
-Their metrics:
+Metrics:
 - BMI: {bmi}
 - Blood Pressure: {syst} mmHg
 - Cholesterol: {chol} mg/dL
@@ -148,46 +103,24 @@ Their metrics:
 Main Concern: {condition}
 Details: {details}
 
-Please output a **markdown** report with these sections:
+Please output Markdown with:
+1. Demographics
+2. Metrics table
+3. Comparison with regional vs. global trends
+4. 🔍 Key Findings (3 bullets)
+5. 🔧 Recommended Approaches (3 bullets)
 
-### Demographics
-- Age: {age}
-- Gender: {gender}
-- Country: {country}
-
-### Metrics Table
-Describe each metric with its labels and values.
-
-### Comparison with Regional & Global Trends
-One concise paragraph.
-
-### 🔍 Key Findings
-Three bullet points.
-
-### 🔧 Recommended Approaches
-{approach_md}
-
-Do **not** mention any personal identifiers.
+Do NOT mention any personal identifiers.
 """
-        resp = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role":"user","content":analysis_prompt}]
-        )
-        analysis = resp.choices[0].message.content.strip()
 
-        # 6) Send email summary
-        email_html = f"<html><body style='font-family:sans-serif;color:#333'>" \
-                     f"<h2>🌐 New Global Health Insights Request</h2>" \
-                     f"<pre style='white-space:pre-wrap'>{analysis}</pre>" \
-                     f"</body></html>"
-        send_email(email_html)
+    # Call GPT
+    resp = client.chat.completions.create(model="gpt-3.5-turbo",messages=[{"role":"user","content":prompt}])
+    analysis = resp.choices[0].message.content.strip()
 
-        # 7) Return JSON
-        return jsonify({"metrics": metrics, "analysis": analysis})
+    # Email & response
+    email_html=f"<html><body><h2>{header}</h2><pre>{analysis}</pre></body></html>"
+    send_email(email_html)
+    return jsonify({"metrics":metrics,"analysis":analysis})
 
-    except Exception as e:
-        app.logger.exception("Error in /health_analyze")
-        return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0")
+if __name__=="__main__":
+    app.run(host="0.0.0.0",debug=True)
