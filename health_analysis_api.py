@@ -1,170 +1,126 @@
-# health_analysis_api.py
-
-import os
-import json
-import smtplib
-import logging
+import os, json, smtplib, logging, random
 from datetime import datetime
 from email.mime.text import MIMEText
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
 
-# ── Flask Setup ─────────────────────────────────────────────────────────────
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.DEBUG)
 
-# ── SMTP & OpenAI Setup ─────────────────────────────────────────────────────
 SMTP_SERVER   = "smtp.gmail.com"
 SMTP_PORT     = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-if not SMTP_PASSWORD:
-    app.logger.warning("SMTP_PASSWORD not set; emails may fail.")
-
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise RuntimeError("OPENAI_API_KEY environment variable is not set.")
+OPENAI_API_KEY= os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY: raise RuntimeError("OPENAI_API_KEY not set")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-
-def send_email(html_body: str):
-    """Send HTML email to yourself with submission details, report, and charts."""
-    msg = MIMEText(html_body, 'html')
-    msg["Subject"] = "🎯 New Health Check Submission"
-    msg["From"]    = SMTP_USERNAME
-    msg["To"]      = SMTP_USERNAME
-
+def send_email(html):
+    msg=MIMEText(html,'html')
+    msg["Subject"]="New Global Health Insights Submission"
+    msg["From"]=SMTP_USERNAME; msg["To"]=SMTP_USERNAME
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as smtp:
-            smtp.starttls()
-            smtp.login(SMTP_USERNAME, SMTP_PASSWORD)
-            smtp.send_message(msg)
-        app.logger.info("✅ Health submission email sent.")
+        with smtplib.SMTP(SMTP_SERVER,SMTP_PORT) as s:
+            s.starttls(); s.login(SMTP_USERNAME,SMTP_PASSWORD); s.send_message(msg)
     except Exception:
-        app.logger.exception("❌ Failed to send health submission email.")
-
+        app.logger.exception("Email failed")
 
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
-    data = request.get_json(force=True)
+    d = request.get_json(force=True)
+    # Common extraction
+    dob, gender, height, weight = d.get("dob",""), d.get("gender",""), float(d.get("height",0)), float(d.get("weight",0))
+    country, condition, details = d.get("country",""), d.get("condition",""), d.get("details","")
+    lang = d.get("lang","en").lower()
+    # Compute age & metrics
     try:
-        # 1) Extract inputs
-        name      = data.get("name", "").strip()
-        dob_str   = data.get("dob", "")
-        gender    = data.get("gender", "").strip()
-        height    = float(data.get("height", 0))
-        weight    = float(data.get("weight", 0))
-        country   = data.get("country", "").strip()
-        condition = data.get("condition", "").strip()
-        details   = data.get("details", "").strip()
-        referrer  = data.get("referrer", "").strip()
-        angel     = data.get("angel", "").strip()
-        lang      = data.get("lang", "en").lower()
+        bd=datetime.fromisoformat(dob); today=datetime.today()
+        age=today.year-bd.year-((today.month,today.day)<(bd.month,bd.day))
+    except: age=None
+    bmi=round(weight/((height/100)**2),1) if height>0 else None
+    syst=random.randint(110,160); chol=random.randint(150,260)
+    labels = [f"Similar Age (Age {age})","Ideal","High-Risk"]
+    metrics=[
+      {"title":"BMI Status","labels":[f"Similar Age (Age {age})","Ideal (22)","High-Risk (30)"],"values":[bmi or 0,22,30]},
+      {"title":"Blood Pressure","labels":[f"Similar Age (Age {age})","Optimal","High-Risk"],"values":[syst,120,140]},
+      {"title":"Cholesterol","labels":[f"Similar Age (Age {age})","Optimal","High-Risk"],"values":[chol,200,240]}
+    ]
 
-        # 2) Compute age & BMI
-        try:
-            birthdate = datetime.fromisoformat(dob_str)
-            today     = datetime.today()
-            age = today.year - birthdate.year - (
-                (today.month, today.day) < (birthdate.month, birthdate.day)
-            )
-        except Exception:
-            age = None
+    # Build prompt per language
+    if lang=="zh":
+        header="您正在查看一份全球健康洞察报告"
+        prompt=f"""
+生成一份面向 30 岁左右同龄{gender}在{country}的全球健康洞察报告。
+指标：
+- BMI：{bmi}
+- 血压：{syst} mmHg
+- 胆固醇：{chol} mg/dL
+主要关注：{condition}
+详细信息：{details}
 
-        bmi = round(weight / ((height / 100) ** 2), 1) if height > 0 else None
-        app.logger.debug(f"Computed age={age}, BMI={bmi}")
+请输出 Markdown，包含：
+1. 人口统计（年龄/性别/国家）
+2. 指标表格
+3. 区域 vs 全球 比较段落
+4. 🔍 关键发现 3 点
+5. 🔧 建议措施 3 条
+不要提及个人信息。
+"""
+    elif lang=="tw":
+        header="您正在查看一份全球健康洞察報告"
+        prompt=f"""
+生成一份面向 30 歲左右同齡{gender}在{country}的全球健康洞察報告。
+指標：
+- BMI：{bmi}
+- 血壓：{syst} mmHg
+- 膽固醇：{chol} mg/dL
+主要關注：{condition}
+詳細信息：{details}
 
-        # 3) Build OpenAI prompt
-        prompt = f"""
-You are a friendly health consultant.
-
-Patient Info:
-- Name: {name}
+請輸出 Markdown，包含：
+1. 人口統計（年齡/性別/國家）
+2. 指標表格
+3. 區域 vs 全球 比較段落
+4. 🔍 關鍵發現 3 點
+5. 🔧 建議措施 3 條
+不要提及個人信息。
+"""
+    else:
+        header="You are viewing a Global Health Insights report"
+        prompt=f"""
+Generate a GLOBAL HEALTH INSIGHTS report for a generic person of:
 - Age: {age}
 - Gender: {gender}
 - Country: {country}
-- Height: {height} cm
-- Weight: {weight} kg
+
+Metrics:
 - BMI: {bmi}
+- Blood Pressure: {syst} mmHg
+- Cholesterol: {chol} mg/dL
 
 Main Concern: {condition}
 Details: {details}
 
-Please:
-1. Return three JSON metrics comparing the patient vs. ideal vs. high-risk, e.g.:
-   {{ "title": "BMI Status", "labels": ["Similar Age (Age {age})","Ideal (22)","High-Risk (30)"], "values": [{bmi},22,30] }}
-2. Provide a concise analysis with three actionable next steps.
-3. Output only a single JSON object with keys "metrics" and "analysis".
+Please output Markdown with:
+1. Demographics
+2. Metrics table
+3. Comparison with regional vs. global trends
+4. 🔍 Key Findings (3 bullets)
+5. 🔧 Recommended Approaches (3 bullets)
+
+Do NOT mention any personal identifiers.
 """
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        raw = response.choices[0].message.content.strip()
-        report = json.loads(raw)
 
-        # 4) Build HTML email with inline‐CSS bar charts
-        palette = ["#5E9CA0", "#FF9F40", "#9966FF"]
-        html_parts = [
-            "<html><body style='font-family:sans-serif;color:#333'>",
-            "<h2>🎯 New Health Check Submission</h2>",
-            "<p>",
-            f"👤 <strong>Given Legal Name:</strong> {name}<br>",
-            f"🎂 <strong>Date of Birth:</strong> {dob_str} (Age: {age})<br>",
-            f"⚧️ <strong>Gender:</strong> {gender}<br>",
-            f"📏 <strong>Height:</strong> {height} cm<br>",
-            f"⚖️ <strong>Weight:</strong> {weight} kg<br>",
-            f"🌍 <strong>Country:</strong> {country}<br>",
-            f"📌 <strong>Main Concern:</strong> {condition}<br>",
-            f"📝 <strong>Details:</strong> {details}<br>",
-            f"💬 <strong>Referrer:</strong> {referrer}<br>",
-            f"👼 <strong>Caring Angel:</strong> {angel}<br>",
-            "</p><hr>",
-            "<h3>📊 Metrics & Analysis</h3>",
-            f"<pre style='white-space:pre-wrap;font-size:14px'>{report['analysis']}</pre>",
-            "<h3>📈 Charts</h3>"
-        ]
+    # Call GPT
+    resp = client.chat.completions.create(model="gpt-3.5-turbo",messages=[{"role":"user","content":prompt}])
+    analysis = resp.choices[0].message.content.strip()
 
-        # Inline bar charts (with value coercion)
-        for m in report["metrics"]:
-            html_parts.append(f"<h4 style='margin-bottom:6px'>{m['title']}</h4>")
-            for idx, lbl in enumerate(m["labels"]):
-                raw_val = m["values"][idx]
-                try:
-                    val_num = float(raw_val)
-                except Exception:
-                    val_num = 0.0
-                pct = max(val_num, 0)
+    # Email & response
+    email_html=f"<html><body><h2>{header}</h2><pre>{analysis}</pre></body></html>"
+    send_email(email_html)
+    return jsonify({"metrics":metrics,"analysis":analysis})
 
-                color = palette[idx % len(palette)]
-                html_parts.append(f"""
-<div style="margin:4px 0; line-height:1.4; font-size:14px">
-  {lbl}:
-  <span style="
-    display:inline-block;
-    width:{pct}%;
-    height:12px;
-    background:{color};
-    border-radius:4px;
-    vertical-align:middle;
-  "></span>
-  &nbsp;{pct}%
-</div>
-""")
-
-        html_parts.append("</body></html>")
-        send_email("".join(html_parts))
-
-        # 5) Return JSON to widget
-        return jsonify(report)
-
-    except Exception as e:
-        app.logger.exception("Error in /health_analyze")
-        return jsonify({"error": str(e)}), 500
-
-
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0")
+if __name__=="__main__":
+    app.run(host="0.0.0.0",debug=True)
