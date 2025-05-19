@@ -1,5 +1,3 @@
-# health_analysis_api.py
-
 import os
 import json
 import smtplib
@@ -65,23 +63,29 @@ def health_analyze():
             age = None
 
         # 3) Compute metrics in Python
-        bmi   = round(weight / ((height/100)**2),1) if height>0 else None
-        syst  = random.randint(110,160)
-        chol  = random.randint(150,260)
+        bmi  = round(weight / ((height/100)**2),1) if height>0 else None
+        syst = random.randint(110,160)
+        chol = random.randint(150,260)
 
         metrics = [
-            {"title":"BMI Status",
-             "labels":[f"You (Age {age})","Ideal (22)","High-Risk (30)"],
-             "values":[bmi or 0,22,30]},
-            {"title":"Blood Pressure (mmHg)",
-             "labels":[f"You (Age {age})","Optimal (120/80)","High Risk (140/90)"],
-             "values":[syst,120,140]},
-            {"title":"Cholesterol (mg/dL)",
-             "labels":[f"You (Age {age})","Optimal (<200)","High Risk (240+)"],
-             "values":[chol,200,240]}
+            {
+              "title": "BMI Status",
+              "labels": [f"Similar Age (Age {age})", "Ideal (22)", "High-Risk (30)"],
+              "values": [bmi or 0, 22, 30]
+            },
+            {
+              "title": "Blood Pressure (mmHg)",
+              "labels": [f"Similar Age (Age {age})", "Optimal (120/80)", "High-Risk (140/90)"],
+              "values": [syst, 120, 140]
+            },
+            {
+              "title": "Cholesterol (mg/dL)",
+              "labels": [f"Similar Age (Age {age})", "Optimal (<200)", "High-Risk (240+)"],
+              "values": [chol, 200, 240]
+            }
         ]
 
-        # 4) GPT for analysis—inject dynamic demographics
+        # 4) GPT for analysis text only
         prompt = f"""
 You are generating a GLOBAL HEALTH INSIGHTS report for a generic person of:
 - Age: {age}
@@ -127,12 +131,12 @@ Do **not** mention the person’s name or any identifying info.
         )
         send_email(html)
 
-        # 6) Return JSON payload
+        # 6) Return JSON
         return jsonify({"metrics": metrics, "analysis": analysis})
 
     except Exception as e:
         app.logger.exception("Error in /health_analyze")
         return jsonify({"error": str(e)}), 500
 
-if __name__=="__main__":
+if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0")
