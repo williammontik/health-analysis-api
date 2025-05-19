@@ -95,7 +95,7 @@ Details: {details}
 
 Please:
 1. Return three JSON metrics comparing the patient vs. ideal vs. high-risk, e.g.:
-   {{ "title": "BMI Status", "labels": ["Similar Age (Age {age})","Ideal (22)","High-Risk (30)"], "values": [bmi,22,30] }}
+   {{ "title": "BMI Status", "labels": ["Similar Age (Age {age})","Ideal (22)","High-Risk (30)"], "values": [{bmi},22,30] }}
 2. Provide a concise analysis with three actionable next steps.
 3. Output only a single JSON object with keys "metrics" and "analysis".
 """
@@ -128,28 +128,34 @@ Please:
             "<h3>📈 Charts</h3>"
         ]
 
-        # Inline bar charts
+        # Inline bar charts (with value coercion)
         for m in report["metrics"]:
             html_parts.append(f"<h4 style='margin-bottom:6px'>{m['title']}</h4>")
             for idx, lbl in enumerate(m["labels"]):
-                val = m["values"][idx]
+                raw_val = m["values"][idx]
+                try:
+                    val_num = float(raw_val)
+                except Exception:
+                    val_num = 0.0
+                pct = max(val_num, 0)
+
                 color = palette[idx % len(palette)]
                 html_parts.append(f"""
 <div style="margin:4px 0; line-height:1.4; font-size:14px">
-  {lbl}: 
+  {lbl}:
   <span style="
     display:inline-block;
-    width:{max(val,0)}%;
+    width:{pct}%;
     height:12px;
     background:{color};
     border-radius:4px;
     vertical-align:middle;
   "></span>
-  &nbsp;{val}%
+  &nbsp;{pct}%
 </div>
 """)
-        html_parts.append("</body></html>")
 
+        html_parts.append("</body></html>")
         send_email("".join(html_parts))
 
         # 5) Return JSON to widget
@@ -161,4 +167,4 @@ Please:
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0")
+    app.run(debug=True, host="0.0.0.0"
