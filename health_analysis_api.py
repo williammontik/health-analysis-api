@@ -1,127 +1,116 @@
-# -*- coding: utf-8 -*-
-import os
-import random
+import os, json, smtplib, logging, random
 from datetime import datetime
-from dateutil import parser
+from email.mime.text import MIMEText
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from openai import OpenAI
-from email.mime.text import MIMEText
-import smtplib
 
 app = Flask(__name__)
 CORS(app)
+logging.basicConfig(level=logging.DEBUG)
 
-# ── OpenAI Configuration ─────────────────────────────────────────────────────
+SMTP_SERVER    = "smtp.gmail.com"
+SMTP_PORT      = 587
+SMTP_USERNAME  = "kata.chatbot@gmail.com"
+SMTP_PASSWORD  = os.getenv("SMTP_PASSWORD")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise RuntimeError("OPENAI_API_KEY not set")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# ── SMTP Configuration ───────────────────────────────────────────────────────
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT   = 587
-SMTP_USER   = "kata.chatbot@gmail.com"
-SMTP_PASS   = os.getenv("SMTP_PASSWORD")
-
-def compute_age_from_dob(dob_str: str) -> int:
+def send_email(html: str):
+    msg = MIMEText(html, 'html')
+    msg["Subject"] = "Your Global Health Insights Report"
+    msg["From"]    = SMTP_USERNAME
+    msg["To"]      = SMTP_USERNAME
     try:
-        bd = parser.parse(dob_str)
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as s:
+            s.starttls()
+            s.login(SMTP_USERNAME, SMTP_PASSWORD)
+            s.send_message(msg)
+        app.logger.info("✅ Email sent.")
     except Exception:
-        return None
-    today = datetime.today()
-    return today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
-
-def send_email(body: str):
-    msg = MIMEText(body, 'html')
-    msg["Subject"] = "Your AI Health Report"
-    msg["From"]    = SMTP_USER
-    msg["To"]      = SMTP_USER
-    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as s:
-        s.starttls()
-        if SMTP_PASS:
-            s.login(SMTP_USER, SMTP_PASS)
-        s.send_message(msg)
+        app.logger.exception("❌ Email failed")
 
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
     d = request.get_json(force=True)
-    # Extract inputs
-    name      = d.get('name','')
-    dob       = d.get('dob','')
-    age       = compute_age_from_dob(dob) or ''
-    gender    = d.get('gender','')
-    height    = d.get('height','')
-    weight    = d.get('weight','')
-    country   = d.get('country','')
-    condition = d.get('condition','')
-    details   = d.get('details','')
-    referrer  = d.get('referrer','')
-    angel     = d.get('angel','')
+    dob       = d.get("dob", "")
+    gender    = d.get("gender", "")
+    height    = float(d.get("height", 0))
+    weight    = float(d.get("weight", 0))
+    country   = d.get("country", "")
+    condition = d.get("condition", "")
+    details   = d.get("details", "")
+    lang      = d.get("lang", "en").lower()
 
-    # Generate random benchmarks: (local, regional, global)
-    def rv(): return random.randint(50, 100)
+    try:
+        bd    = datetime.fromisoformat(dob)
+        today = datetime.today()
+        age   = today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
+    except:
+        age = None
+    bmi  = round(weight / ((height/100)**2), 1) if height > 0 else 0
+    syst = random.randint(110,160)
+    chol = random.randint(150,260)
+
     metrics = [
-        ("Blood Pressure Health", rv(), rv(), rv()),
-        ("Blood Sugar Control",    rv(), rv(), rv()),
-        ("Cholesterol Management", rv(), rv(), rv()),
+        {"title": "BMI Status",       "labels": [f"Age {age}", "Ideal (22)", "High-Risk (30)"],    "values": [bmi, 22, 30]},
+        {"title": "Blood Pressure",   "labels": [f"Age {age}", "Optimal (120)", "High-Risk (140)"], "values": [syst, 120, 140]},
+        {"title": "Cholesterol",      "labels": [f"Age {age}", "Optimal (200)", "High-Risk (240)"], "values": [chol, 200, 240]}
     ]
 
-    # Build horizontal bars
-    bar_html = ""
-    for title, local, regional, glob in metrics:
-        bar_html += f"<strong>{title}</strong><br>"
-        for val, color in [(local,"#5E9CA0"), (regional,"#FF9F40"), (glob,"#9966FF")]:
-            bar_html += (
-                f"<span style='display:inline-block; width:{val}%; height:12px; "
-                f"background:{color}; margin-right:6px; border-radius:4px;'></span> {val}%<br>"
-            )
-        bar_html += "<br>"
+    prompt = f"""
+Write a public health improvement report based on the following data:
+- Age Group: around {age}
+- Gender: {gender}
+- Country: {country}
+- Main Health Concern: {condition}
+- Brief Description: {details}
+- Key metrics: BMI = {bmi}, Blood Pressure = {syst} mmHg, Cholesterol = {chol} mg/dL
 
-    # Static summary
-    summary_html = (
-        f"<h2>📄 Health Summary for {name}</h2>"
-        f"• Age: {age}<br>"
-        f"• Gender: {gender}<br>"
-        f"• Height: {height} cm, Weight: {weight} kg<br>"
-        f"• Country: {country}<br>"
-        f"• Main Concern: {condition}<br>"
-        f"• Details: {details}<br>"
-        f"• Referrer: {referrer}<br>"
-        f"• Caring Angel: {angel}<br><br>"
-    )
+Do NOT personalize to a specific person. Write as if this is an anonymous case study, highlighting general insights from similar individuals. Use professional, constructive tone with suggestions.
 
-    # OpenAI prompt
-    local_bp, reg_bp, glob_bp = metrics[0][1], metrics[0][2], metrics[0][3]
-    prompt = (
-        f"Generate seven health-focused analytical paragraphs as a global overview for {gender}s aged {age} in {country}. "
-        f"Reference Blood Pressure Health: {local_bp}% local, {reg_bp}% regional, {glob_bp}% global; "
-        f"Blood Sugar Control: {metrics[1][1]}%/{metrics[1][2]}%/{metrics[1][3]}%; "
-        f"Cholesterol Management: {metrics[2][1]}%/{metrics[2][2]}%/{metrics[2][3]}%. "
-        f"Incorporate the main concern ({condition}) and details provided. "
-        f"Wrap each paragraph in <p>…</p> and use transitions like 'Conversely', 'Meanwhile'."
-    )
+Please output 6 clear paragraphs:
+1. Demographics summary.
+2. Interpretation of BMI and its implication.
+3. Comment on blood pressure and potential trends.
+4. Cholesterol impact and general advice.
+5. Insights drawn from other individuals with similar concern in {country}.
+6. Suggested actions or improvements (e.g., diet, exercise, screenings).
+
+Wrap each paragraph in <p>...</p> tags.
+"""
 
     resp = client.chat.completions.create(
         model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are an expert health analyst aware of regional and global benchmarks."},
-            {"role": "user",   "content": prompt}
-        ],
-        temperature=0.7,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7
     )
-    analysis_html = resp.choices[0].message.content
+    analysis = resp.choices[0].message.content.strip()
 
-    full_html = bar_html + summary_html + "<h4>🌐 Global Health Analysis</h4>" + analysis_html
-    send_email(full_html)
+    # HTML for email and frontend
+    html = [f"<html><body style='font-family:sans-serif;'>",
+            "<h2 style='color:#5E9CA0;'>🎉 Global Identical Health Insights</h2><hr>",
+            "<h3>📊 Metrics Overview</h3>"]
+    
+    palette = ["#5E9CA0", "#FF9F40", "#9966FF"]
+    for m in metrics:
+        html.append(f"<h4>{m['title']}</h4>")
+        for idx, lbl in enumerate(m["labels"]):
+            val = m["values"][idx]
+            html.append(f"""
+<div style="margin-bottom:6px;">
+  {lbl}: 
+  <span style='display:inline-block; width:{val}%; height:12px; background:{palette[idx % 3]}; border-radius:4px;'></span> {val}%
+</div>""")
+    
+    html.append("<h3>📄 AI Health Insights</h3>")
+    html.append(analysis)
+    html.append("</body></html>")
 
-    return jsonify({
-        "metrics": [
-            {"title": t, "labels": ["Local","Regional","Global"], "values": [l, r, g]}
-            for t, l, r, g in metrics
-        ],
-        "analysis": full_html
-    })
+    send_email("".join(html))
+    return jsonify({"metrics": metrics, "analysis": analysis})
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
