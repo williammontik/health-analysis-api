@@ -12,10 +12,7 @@ CORS(app)
 logging.basicConfig(level=logging.DEBUG)
 
 # 🔐 API Keys
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY: raise RuntimeError("OPENAI_API_KEY not set")
-openai.api_key = OPENAI_API_KEY
-
+openai.api_key = os.getenv("OPENAI_API_KEY")
 SMTP_SERVER   = "smtp.gmail.com"
 SMTP_PORT     = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
@@ -23,7 +20,7 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 if not SMTP_PASSWORD:
     app.logger.warning("SMTP_PASSWORD is not set!")
 
-# 🌐 Language Settings
+# 🌐 Language Support
 LANGUAGE = {
     "en": {
         "email_subject": "Your Health Insight Report",
@@ -57,7 +54,7 @@ def send_email(html_body, lang):
     except Exception as e:
         app.logger.error(f"Email send error: {e}")
 
-# 🧮 Age Calculation
+# 🎂 Age Calculation
 def compute_age(dob):
     try:
         dt = parser.parse(dob)
@@ -66,7 +63,7 @@ def compute_age(dob):
     except:
         return 0
 
-# 📊 Metrics Generation
+# 📊 Health Metrics Generator
 def generate_metrics():
     return [
         {"title": "BMI Analysis", "labels": ["Your BMI", "Regional Avg", "Global Avg"], "values": [random.randint(19, 30), 23, 24]},
@@ -74,7 +71,7 @@ def generate_metrics():
         {"title": "Cholesterol", "labels": ["Your Level", "Regional Avg", "Global Avg"], "values": [random.randint(180, 250), 210, 220]}
     ]
 
-# 🧠 GPT Summary
+# 💬 GPT Summary
 def get_gpt_summary(prompt, model="gpt-3.5-turbo"):
     try:
         response = openai.ChatCompletion.create(
@@ -117,7 +114,6 @@ def analyze_health():
         )
         analysis = get_gpt_summary(prompt)
 
-        # 🎨 Assemble HTML
         html = (
             f"<h4 style='text-align:center;font-size:24px;'>{content['report_title']}</h4>"
             f"<p><strong>Name:</strong> {name}<br><strong>DOB:</strong> {dob} (Age: {age})<br>"
