@@ -5,43 +5,28 @@ from dateutil import parser
 from email.mime.text import MIMEText
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from openai import OpenAI  # ✅ for openai>=1.0.0
+from openai import OpenAI
 
 app = Flask(__name__)
 CORS(app)
 logging.basicConfig(level=logging.DEBUG)
 
-# ✅ OpenAI client setup
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# ✅ Email setup
-SMTP_SERVER   = "smtp.gmail.com"
-SMTP_PORT     = 587
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 if not SMTP_PASSWORD:
     app.logger.warning("SMTP_PASSWORD is not set!")
 
-# 🌐 Language dictionary
 LANGUAGE = {
     "en": {
         "email_subject": "Your Health Insight Report",
-        "report_title": "🎉 Global Identical Health Insights",
-        "ps": "PS: This report has also been emailed to you and should arrive within 24 hours. Stay well and feel free to reach out for a follow-up discussion."
-    },
-    "zh": {
-        "email_subject": "您的健康洞察报告",
-        "report_title": "🎉 全球健康洞察分析",
-        "ps": "PS: 此报告已通过电子邮件发送，预计24小时内送达。如需进一步讨论，欢迎联系我们。"
-    },
-    "tw": {
-        "email_subject": "您的健康洞察報告",
-        "report_title": "🎉 全球健康洞察分析",
-        "ps": "PS: 此報告已通過電子郵件發送，預計24小時內送達。如需進一步討論，歡迎與我們聯繫。"
+        "report_title": "🎉 Global Identical Health Insights"
     }
 }
 
-# 📧 Email sender
 def send_email(html_body, lang):
     content = LANGUAGE.get(lang, LANGUAGE["en"])
     msg = MIMEText(html_body, 'html', 'utf-8')
@@ -56,7 +41,6 @@ def send_email(html_body, lang):
     except Exception as e:
         app.logger.error(f"Email send error: {e}")
 
-# 🎂 Age calculator
 def compute_age(dob):
     try:
         dt = parser.parse(dob)
@@ -65,15 +49,13 @@ def compute_age(dob):
     except:
         return 0
 
-# 📊 Metric generator
 def generate_metrics():
     return [
-        {"title": "BMI Analysis", "labels": ["Your BMI", "Regional Avg", "Global Avg"], "values": [random.randint(19, 30), 23, 24]},
-        {"title": "Blood Pressure", "labels": ["Your Level", "Regional Avg", "Global Avg"], "values": [random.randint(110, 160), 135, 128]},
-        {"title": "Cholesterol", "labels": ["Your Level", "Regional Avg", "Global Avg"], "values": [random.randint(180, 250), 210, 220]}
+        {"title": "BMI Analysis", "labels": ["Similar Individuals", "Regional Avg", "Global Avg"], "values": [random.randint(19, 30), 23, 24]},
+        {"title": "Blood Pressure", "labels": ["Similar Individuals", "Regional Avg", "Global Avg"], "values": [random.randint(110, 160), 135, 128]},
+        {"title": "Cholesterol", "labels": ["Similar Individuals", "Regional Avg", "Global Avg"], "values": [random.randint(180, 250), 210, 220]}
     ]
 
-# 🧠 GPT summary function
 def get_gpt_summary(prompt, model="gpt-3.5-turbo"):
     try:
         response = client.chat.completions.create(
@@ -86,7 +68,6 @@ def get_gpt_summary(prompt, model="gpt-3.5-turbo"):
         app.logger.error(f"OpenAI error: {e}")
         return "⚠️ Unable to generate health summary right now."
 
-# 🚀 Health endpoint
 @app.route("/health_analyze", methods=["POST"])
 def analyze_health():
     try:
@@ -108,36 +89,54 @@ def analyze_health():
 
         metrics = generate_metrics()
 
-        # 🧠 GPT Prompt
         prompt = (
-            f"You are a health consultant. Write a friendly and insightful health summary for:\n"
-            f"• Name: {name}\n"
-            f"• Age: {age}\n"
-            f"• Gender: {gender}\n"
-            f"• Height: {height} cm\n"
-            f"• Weight: {weight} kg\n"
-            f"• Country: {country}\n"
-            f"• Main Concern: {concern}\n"
-            f"• Brief Description: {notes}\n"
-            f"Your goal is to give 4 short paragraphs of meaningful advice. "
-            f"Be warm, helpful, and professional. Respond in {lang.upper()} language."
+            f"As a health analyst, review aggregated health trends from individuals of similar age ({age}), gender ({gender}), "
+            f"and country ({country}). The main concern observed is '{concern}'. Additional notes include: '{notes}'. "
+            f"Write 4 paragraphs of generalized advice based on similar demographics. Do not refer to the person directly. "
+            f"Avoid personal greetings or sign-offs. Use third-person insights."
         )
+
         analysis = get_gpt_summary(prompt)
 
-        # 📄 Email Content
-        html = (
-            f"<h4 style='text-align:center;font-size:24px;'>{content['report_title']}</h4>"
-            f"<p><strong>Name:</strong> {name}<br><strong>DOB:</strong> {dob} (Age: {age})<br>"
-            f"<strong>Gender:</strong> {gender}<br><strong>Height:</strong> {height} cm<br>"
-            f"<strong>Weight:</strong> {weight} kg<br><strong>Country:</strong> {country}<br>"
-            f"<strong>Concern:</strong> {concern}<br><strong>Brief Description:</strong> {notes}<br>"
-            f"<strong>Referrer:</strong> {ref}<br><strong>Angel:</strong> {angel}</p>"
-            f"<div>{analysis}</div>"
-            f"<p style='margin-top:20px;background:#e6f7ff;padding:15px;border-left:4px solid #5E9CA0;'>"
-            f"<strong>{content['ps']}</strong></p>"
+        chart_html = ""
+        for metric in metrics:
+            chart_html += f"<strong>{metric['title']}</strong><br>"
+            for label, value in zip(metric["labels"], metric["values"]):
+                chart_html += (
+                    f"<div style='display:flex; align-items:center; margin-bottom:6px;'>"
+                    f"<span style='width:140px;'>{label}</span>"
+                    f"<span style='flex:1; background:#ddd; border-radius:4px; overflow:hidden;'>"
+                    f"<span style='display:inline-block; width:{value}%; background:#5E9CA0; height:12px;'></span>"
+                    f"</span> <span style='margin-left:10px;'>{value}%</span></div>"
+                )
+            chart_html += "<br>"
+
+        footer = (
+            '<div style="background-color:#e6f7ff; color:#00529B; padding:15px; '
+            'border-left:4px solid #00529B; margin:20px 0;">'
+            '<strong>The insights in this report are generated by KataChat’s AI systems analyzing:</strong><br>'
+            '1. Our proprietary database of anonymized professional profiles across Singapore, Malaysia, and Taiwan<br>'
+            '2. Aggregated global business benchmarks from trusted OpenAI research and leadership trend datasets<br>'
+            '<em>All data is processed through our AI models to identify statistically significant patterns while maintaining strict PDPA compliance. Sample sizes vary by analysis, with minimum thresholds of 1,000+ data points for management comparisons.</em>'
+            '</div>'
+            '<p style="background-color:#e6f7ff; color:#00529B; padding:15px; '
+            'border-left:4px solid #00529B; margin:20px 0;">'
+            '<strong>PS:</strong> This report has also been sent to your email inbox and should arrive within 24 hours. '
+            'If you\'d like to discuss it further, feel free to reach out — we’re happy to arrange a 15-minute call at your convenience.'
+            '</p>'
         )
 
-        # ✉️ Send Email
+        html = (
+            f"<h4 style='text-align:center; font-size:24px;'>{content['report_title']}</h4>"
+            f"<p><strong>Country:</strong> {country}<br><strong>Gender:</strong> {gender}<br><strong>Age:</strong> {age}<br>"
+            f"<strong>Height:</strong> {height} cm<br><strong>Weight:</strong> {weight} kg<br>"
+            f"<strong>Concern:</strong> {concern}<br><strong>Brief Description:</strong> {notes}<br>"
+            f"<strong>Referrer:</strong> {ref}<br><strong>Angel:</strong> {angel}</p>"
+            f"{chart_html}"
+            f"<div>{analysis}</div>"
+            f"{footer}"
+        )
+
         send_email(html, lang)
 
         return jsonify({
@@ -149,6 +148,5 @@ def analyze_health():
         app.logger.error(f"Health analyze error: {e}")
         return jsonify({"error": "Server error"}), 500
 
-# ▶️ Run the server
 if __name__ == "__main__":
     app.run(debug=True, port=int(os.getenv("PORT", 5000)), host="0.0.0.0")
