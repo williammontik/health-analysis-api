@@ -1,153 +1,144 @@
-import os, smtplib, random
+# -*- coding: utf-8 -*-
+import os, random, logging, smtplib
 from datetime import datetime
+from dateutil import parser
 from email.mime.text import MIMEText
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from openai import OpenAI
+import openai
 
 app = Flask(__name__)
 CORS(app)
+logging.basicConfig(level=logging.DEBUG)
 
-# ── Config ──
+# 🔐 API Keys
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY: raise RuntimeError("OPENAI_API_KEY not set")
+openai.api_key = OPENAI_API_KEY
+
 SMTP_SERVER   = "smtp.gmail.com"
 SMTP_PORT     = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise RuntimeError("OPENAI_API_KEY not set")
-client = OpenAI(api_key=OPENAI_API_KEY)
+if not SMTP_PASSWORD:
+    app.logger.warning("SMTP_PASSWORD is not set!")
 
-def compute_age(dob_str):
+# 🌐 Language Settings
+LANGUAGE = {
+    "en": {
+        "email_subject": "Your Health Insight Report",
+        "report_title": "🎉 Global Identical Health Insights",
+        "ps": "PS: This report has also been emailed to you and should arrive within 24 hours. Stay well and feel free to reach out for a follow-up discussion."
+    },
+    "zh": {
+        "email_subject": "您的健康洞察报告",
+        "report_title": "🎉 全球健康洞察分析",
+        "ps": "PS: 此报告已通过电子邮件发送，预计24小时内送达。如需进一步讨论，欢迎联系我们。"
+    },
+    "tw": {
+        "email_subject": "您的健康洞察報告",
+        "report_title": "🎉 全球健康洞察分析",
+        "ps": "PS: 此報告已通過電子郵件發送，預計24小時內送達。如需進一步討論，歡迎與我們聯繫。"
+    }
+}
+
+# 📧 Email Sending
+def send_email(html_body, lang):
+    content = LANGUAGE.get(lang, LANGUAGE["en"])
+    msg = MIMEText(html_body, 'html', 'utf-8')
+    msg['Subject'] = content["email_subject"]
+    msg['From'] = SMTP_USERNAME
+    msg['To'] = SMTP_USERNAME
     try:
-        bd = datetime.fromisoformat(dob_str)
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(msg)
+    except Exception as e:
+        app.logger.error(f"Email send error: {e}")
+
+# 🧮 Age Calculation
+def compute_age(dob):
+    try:
+        dt = parser.parse(dob)
         today = datetime.today()
-        return today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
+        return today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
     except:
-        return None
+        return 0
 
-def send_email(html_body: str):
-    msg = MIMEText(html_body, 'html')
-    msg["Subject"] = "Your Global Health Insights Report"
-    msg["From"]    = SMTP_USERNAME
-    msg["To"]      = SMTP_USERNAME
-    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-        server.starttls()
-        server.login(SMTP_USERNAME, SMTP_PASSWORD)
-        server.send_message(msg)
-
-@app.route("/health_analyze", methods=["POST"])
-def health_analyze():
-    d = request.get_json(force=True)
-    name      = d.get("name", "")
-    dob       = d.get("dob", "")
-    gender    = d.get("gender", "")
-    height    = float(d.get("height", 0))
-    weight    = float(d.get("weight", 0))
-    country   = d.get("country", "")
-    condition = d.get("condition", "")
-    details   = d.get("details", "")
-
-    age  = compute_age(dob)
-    bmi  = round(weight / ((height/100)**2), 1) if height > 0 else 0
-    syst = random.randint(110,160)
-    chol = random.randint(150,260)
-
-    # === Metrics Bar Data ===
-    metrics = [
-        ("BMI Status",       bmi, 22, 30, "#5E9CA0"),
-        ("Blood Pressure",   syst, 120, 140, "#FF9F40"),
-        ("Cholesterol",      chol, 200, 240, "#9966FF"),
+# 📊 Metrics Generation
+def generate_metrics():
+    return [
+        {"title": "BMI Analysis", "labels": ["Your BMI", "Regional Avg", "Global Avg"], "values": [random.randint(19, 30), 23, 24]},
+        {"title": "Blood Pressure", "labels": ["Your Level", "Regional Avg", "Global Avg"], "values": [random.randint(110, 160), 135, 128]},
+        {"title": "Cholesterol", "labels": ["Your Level", "Regional Avg", "Global Avg"], "values": [random.randint(180, 250), 210, 220]}
     ]
 
-    # === Horizontal Bar HTML ===
-    bar_html = ""
-    for title, val1, val2, val3, color in metrics:
-        bar_html += f"<strong>{title}</strong><br>"
-        for val in (val1, val2, val3):
-            bar_html += (
-                f"<span style='display:inline-block; width:{val}%; height:12px;"
-                f" background:{color}; margin-right:6px; border-radius:4px;'></span> {val}%<br>"
-            )
-        bar_html += "<br>"
+# 🧠 GPT Summary
+def get_gpt_summary(prompt, model="gpt-3.5-turbo"):
+    try:
+        response = openai.ChatCompletion.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        return response['choices'][0]['message']['content']
+    except Exception as e:
+        app.logger.error(f"OpenAI error: {e}")
+        return "⚠️ Unable to generate health summary right now."
 
-    # === 📄 Personal Health Report ===
-    report_html = (
-        "<br>\n"
-      + '<h2 class="sub">📄 Personal Health Report</h2>\n'
-      + f"• Age: {age}<br>"
-      + f"• Gender: {gender}<br>"
-      + f"• Country: {country}<br>"
-      + f"• Height: {height} cm<br>"
-      + f"• Weight: {weight} kg<br>"
-      + f"• BMI: {bmi}<br>"
-      + f"• Blood Pressure: {syst} mmHg<br>"
-      + f"• Cholesterol: {chol} mg/dL<br>"
-      + f"• Main Concern: {condition}<br>"
-      + f"• Description: {details}<br>"
-    )
+# 🚀 Main Endpoint
+@app.route("/health_analyze", methods=["POST"])
+def analyze_health():
+    try:
+        data = request.get_json(force=True)
+        lang = data.get("lang", "en").lower()
+        content = LANGUAGE.get(lang, LANGUAGE["en"])
 
-    # === 🌐 GPT Global Health Analytical Report ===
-    prompt = f"""
-Generate exactly seven analytical paragraphs for a "🌐 Global Health Analytical Report", written as a public health overview for similar individuals.
-Do NOT personalize or refer to any single person.
+        name     = data.get("name")
+        dob      = data.get("dob")
+        gender   = data.get("gender")
+        height   = data.get("height")
+        weight   = data.get("weight")
+        country  = data.get("country")
+        concern  = data.get("condition")
+        notes    = data.get("details")
+        ref      = data.get("referrer")
+        angel    = data.get("angel")
+        age      = compute_age(dob)
 
-Use this data:
-- Age Group: around {age}
-- Gender: {gender}
-- Country: {country}
-- BMI: {bmi}
-- Blood Pressure: {syst} mmHg
-- Cholesterol: {chol} mg/dL
-- Main Health Concern: {condition}
-- Description: {details}
+        metrics  = generate_metrics()
 
-Each paragraph should offer meaningful insights or improvement ideas based on these values, including suggestions from regional/global cases.
-Use <p>...</p> tags for each.
-"""
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are a professional health data analyst and public wellness advisor."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7
-    )
-    global_html = response.choices[0].message.content
+        prompt = (
+            f"You are a health consultant. Write a friendly and insightful health summary for:\n"
+            f"• Name: {name}\n• Age: {age}\n• Gender: {gender}\n• Height: {height} cm\n• Weight: {weight} kg\n"
+            f"• Country: {country}\n• Health Concern: {concern}\n• Notes: {notes}\n"
+            f"Use {lang.upper()} language for your response. Provide 4 paragraphs of meaningful advice."
+        )
+        analysis = get_gpt_summary(prompt)
 
-    # === Footer ===
-    footer = """
-<div style="background-color:#e6f7ff; color:#00529B; padding:15px; border-left:4px solid #00529B; margin:20px 0;">
-  <strong>The insights in this report are generated by KataChat’s AI systems analyzing:</strong><br>
-  1. A regional health profile database across Singapore, Malaysia, and Taiwan<br>
-  2. Aggregated global wellness benchmarks and OpenAI research on public health trends<br>
-  <em>All data is anonymized and processed under PDPA compliance. Charts are based on ranges found in real-life reports.</em>
-</div>
-<p style="background-color:#e6f7ff; color:#00529B; padding:15px; border-left:4px solid #00529B; margin:20px 0;">
-  <strong>PS:</strong> This report has also been sent to your email inbox and should arrive within 24 hours.
-  If you'd like to discuss it further, we’re happy to arrange a 15-minute call at your convenience.
-</p>
-"""
+        # 🎨 Assemble HTML
+        html = (
+            f"<h4 style='text-align:center;font-size:24px;'>{content['report_title']}</h4>"
+            f"<p><strong>Name:</strong> {name}<br><strong>DOB:</strong> {dob} (Age: {age})<br>"
+            f"<strong>Gender:</strong> {gender}<br><strong>Height:</strong> {height} cm<br>"
+            f"<strong>Weight:</strong> {weight} kg<br><strong>Country:</strong> {country}<br>"
+            f"<strong>Concern:</strong> {concern}<br><strong>Description:</strong> {notes}<br>"
+            f"<strong>Referrer:</strong> {ref}<br><strong>Angel:</strong> {angel}</p>"
+            f"<div>{analysis}</div>"
+            f"<p style='margin-top:20px;background:#e6f7ff;padding:15px;border-left:4px solid #5E9CA0;'>"
+            f"<strong>{content['ps']}</strong></p>"
+        )
 
-    # === Final Assembly ===
-    full_html = (
-        bar_html
-      + report_html
-      + '<h2 class="sub" style="margin-top:0.8em; margin-bottom:0.8em;">🌐 Global Health Analytical Report</h2>\n'
-      + global_html
-      + footer
-    )
+        send_email(html, lang)
 
-    # Send to email
-    send_email(full_html)
-
-    return jsonify({
-        "metrics": [
-            {"title": t, "labels": ["Your Value", "Recommended", "Risk Zone"], "values": [v1, v2, v3]}
-            for t, v1, v2, v3, _ in metrics
-        ],
-        "analysis": full_html
-    })
+        return jsonify({
+            "metrics": metrics,
+            "analysis": analysis
+        })
+    except Exception as e:
+        app.logger.error(f"Health analyze error: {e}")
+        return jsonify({"error": "Server error"}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    app.run(debug=True, port=int(os.getenv("PORT", 5000)), host="0.0.0.0")
