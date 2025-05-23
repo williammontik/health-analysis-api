@@ -88,12 +88,12 @@ def health_analyze():
         metrics = generate_metrics()
 
         summary_prompt = (
-            f"Review health trends of people with similar profiles (age: {age}, gender: {gender}, country: {country}) "
-            f"facing '{concern}'. Write 4 general paragraphs of advice. Do not mention or address any person directly."
+            f"Review health data of people of similar age ({age}), gender ({gender}), and country ({country}) facing '{concern}'. "
+            f"Write 4 professional, generalized paragraphs of advice. Do not mention or address any person directly."
         )
         creative_prompt = (
-            f"As a wellness consultant, suggest 10 creative and actionable tips to support individuals (age: {age}, gender: {gender}) in {country} "
-            f"experiencing '{concern}'. Use numbered format, avoid direct addressing."
+            f"As a wellness consultant, suggest 10 creative, actionable health improvement tips for people of similar age ({age}), gender ({gender}), "
+            f"and country ({country}) experiencing '{concern}'. Use numbered format and group language only."
         )
 
         summary = get_openai_response(summary_prompt)
@@ -105,10 +105,10 @@ def health_analyze():
             for label, value in zip(metric['labels'], metric['values']):
                 chart_html += (
                     f"<div style='display:flex; align-items:center; margin-bottom:8px;'>"
-                    f"<span style='width:150px;'>{label}</span>"
-                    f"<div style='flex:1; background:#ddd; border-radius:6px; overflow:hidden;'>"
-                    f"<div style='width:{value}%; height:12px; background:#5E9CA0;'></div>"
-                    f"</div><span style='margin-left:8px;'>{value}%</span></div>"
+                    f"<span style='width:180px;'>{label}</span>"
+                    f"<div style='flex:1; background:#eee; border-radius:5px; overflow:hidden;'>"
+                    f"<div style='width:{value}%; height:14px; background:#5E9CA0;'></div>"
+                    f"</div><span style='margin-left:10px;'>{value}%</span></div>"
                 )
             chart_html += "<br>"
 
