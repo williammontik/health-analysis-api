@@ -17,8 +17,6 @@ SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-if not SMTP_PASSWORD:
-    app.logger.warning("SMTP_PASSWORD is not set!")
 
 LANGUAGE = {
     "en": {
@@ -28,9 +26,9 @@ LANGUAGE = {
 }
 
 def send_email(html_body, lang):
-    content = LANGUAGE.get(lang, LANGUAGE["en"])
+    subject = LANGUAGE.get(lang, LANGUAGE["en"])["email_subject"]
     msg = MIMEText(html_body, 'html', 'utf-8')
-    msg['Subject'] = content["email_subject"]
+    msg['Subject'] = subject
     msg['From'] = SMTP_USERNAME
     msg['To'] = SMTP_USERNAME
     try:
@@ -56,23 +54,23 @@ def generate_metrics():
         {"title": "Cholesterol", "labels": ["Similar Individuals", "Regional Avg", "Global Avg"], "values": [random.randint(180, 250), 210, 220]}
     ]
 
-def get_gpt_summary(prompt, model="gpt-3.5-turbo"):
+def get_openai_response(prompt, temp=0.7):
     try:
-        response = client.chat.completions.create(
-            model=model,
+        result = client.chat.completions.create(
+            model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
+            temperature=temp
         )
-        return response.choices[0].message.content
+        return result.choices[0].message.content
     except Exception as e:
         app.logger.error(f"OpenAI error: {e}")
-        return "⚠️ Unable to generate health summary right now."
+        return "⚠️ Unable to generate response."
 
 @app.route("/health_analyze", methods=["POST"])
-def analyze_health():
+def health_analyze():
     try:
         data = request.get_json(force=True)
-        lang = data.get("lang", "en").lower()
+        lang = data.get("lang", "en")
         content = LANGUAGE.get(lang, LANGUAGE["en"])
 
         name     = data.get("name")
@@ -82,34 +80,40 @@ def analyze_health():
         weight   = data.get("weight")
         country  = data.get("country")
         concern  = data.get("condition")
-        notes    = data.get("details", "").strip() or "No additional information provided."
+        notes    = data.get("details", "") or "No additional description provided."
         ref      = data.get("referrer")
         angel    = data.get("angel")
         age      = compute_age(dob)
 
         metrics = generate_metrics()
 
-        prompt = (
-            f"As a health analyst, review aggregated health trends from individuals of similar age ({age}), gender ({gender}), "
-            f"and country ({country}). The main concern observed is '{concern}'. Additional notes include: '{notes}'. "
-            f"Write 4 paragraphs of generalized advice based on similar demographics. Do not refer to the person directly. "
-            f"Avoid personal greetings or sign-offs. Use third-person insights."
+        summary_prompt = (
+            f"Review health trends of people with similar profiles (age: {age}, gender: {gender}, country: {country}) "
+            f"facing '{concern}'. Write 4 general paragraphs of advice. Do not mention or address any person directly."
+        )
+        creative_prompt = (
+            f"As a wellness consultant, suggest 10 creative and actionable tips to support individuals (age: {age}, gender: {gender}) in {country} "
+            f"experiencing '{concern}'. Use numbered format, avoid direct addressing."
         )
 
-        analysis = get_gpt_summary(prompt)
+        summary = get_openai_response(summary_prompt)
+        creative = get_openai_response(creative_prompt, temp=0.85)
 
         chart_html = ""
         for metric in metrics:
             chart_html += f"<strong>{metric['title']}</strong><br>"
-            for label, value in zip(metric["labels"], metric["values"]):
+            for label, value in zip(metric['labels'], metric['values']):
                 chart_html += (
-                    f"<div style='display:flex; align-items:center; margin-bottom:6px;'>"
-                    f"<span style='width:140px;'>{label}</span>"
-                    f"<span style='flex:1; background:#ddd; border-radius:4px; overflow:hidden;'>"
-                    f"<span style='display:inline-block; width:{value}%; background:#5E9CA0; height:12px;'></span>"
-                    f"</span> <span style='margin-left:10px;'>{value}%</span></div>"
+                    f"<div style='display:flex; align-items:center; margin-bottom:8px;'>"
+                    f"<span style='width:150px;'>{label}</span>"
+                    f"<div style='flex:1; background:#ddd; border-radius:6px; overflow:hidden;'>"
+                    f"<div style='width:{value}%; height:12px; background:#5E9CA0;'></div>"
+                    f"</div><span style='margin-left:8px;'>{value}%</span></div>"
                 )
             chart_html += "<br>"
+
+        creative_html = "<h3>💡 Creative Support Ideas</h3>"
+        creative_html += "".join(f"<p>{line.strip()}</p>" for line in creative.split("\n") if line.strip())
 
         footer = (
             '<div style="background-color:#e6f7ff; color:#00529B; padding:15px; '
@@ -117,7 +121,8 @@ def analyze_health():
             '<strong>The insights in this report are generated by KataChat’s AI systems analyzing:</strong><br>'
             '1. Our proprietary database of anonymized professional profiles across Singapore, Malaysia, and Taiwan<br>'
             '2. Aggregated global business benchmarks from trusted OpenAI research and leadership trend datasets<br>'
-            '<em>All data is processed through our AI models to identify statistically significant patterns while maintaining strict PDPA compliance. Sample sizes vary by analysis, with minimum thresholds of 1,000+ data points for management comparisons.</em>'
+            '<em>All data is processed through our AI models to identify statistically significant patterns while maintaining strict PDPA compliance. '
+            'Sample sizes vary by analysis, with minimum thresholds of 1,000+ data points for management comparisons.</em>'
             '</div>'
             '<p style="background-color:#e6f7ff; color:#00529B; padding:15px; '
             'border-left:4px solid #00529B; margin:20px 0;">'
@@ -133,7 +138,8 @@ def analyze_health():
             f"<strong>Concern:</strong> {concern}<br><strong>Brief Description:</strong> {notes}<br>"
             f"<strong>Referrer:</strong> {ref}<br><strong>Angel:</strong> {angel}</p>"
             f"{chart_html}"
-            f"<div>{analysis}</div>"
+            f"<div>{summary}</div>"
+            f"{creative_html}"
             f"{footer}"
         )
 
@@ -141,7 +147,7 @@ def analyze_health():
 
         return jsonify({
             "metrics": metrics,
-            "analysis": analysis
+            "analysis": summary
         })
 
     except Exception as e:
