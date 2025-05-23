@@ -63,7 +63,7 @@ def compute_age(dob):
     except:
         return 0
 
-# 📊 Health Metrics Generator
+# 📊 Metrics Generator
 def generate_metrics():
     return [
         {"title": "BMI Analysis", "labels": ["Your BMI", "Regional Avg", "Global Avg"], "values": [random.randint(19, 30), 23, 24]},
@@ -84,7 +84,7 @@ def get_gpt_summary(prompt, model="gpt-3.5-turbo"):
         app.logger.error(f"OpenAI error: {e}")
         return "⚠️ Unable to generate health summary right now."
 
-# 🚀 Main Endpoint
+# 🚀 API Endpoint
 @app.route("/health_analyze", methods=["POST"])
 def analyze_health():
     try:
@@ -99,7 +99,7 @@ def analyze_health():
         weight   = data.get("weight")
         country  = data.get("country")
         concern  = data.get("condition")
-        notes    = data.get("details")
+        notes    = data.get("details", "").strip() or "No additional information provided."
         ref      = data.get("referrer")
         angel    = data.get("angel")
         age      = compute_age(dob)
@@ -108,10 +108,18 @@ def analyze_health():
 
         prompt = (
             f"You are a health consultant. Write a friendly and insightful health summary for:\n"
-            f"• Name: {name}\n• Age: {age}\n• Gender: {gender}\n• Height: {height} cm\n• Weight: {weight} kg\n"
-            f"• Country: {country}\n• Health Concern: {concern}\n• Notes: {notes}\n"
-            f"Use {lang.upper()} language for your response. Provide 4 paragraphs of meaningful advice."
+            f"• Name: {name}\n"
+            f"• Age: {age}\n"
+            f"• Gender: {gender}\n"
+            f"• Height: {height} cm\n"
+            f"• Weight: {weight} kg\n"
+            f"• Country: {country}\n"
+            f"• Main Concern: {concern}\n"
+            f"• Brief Description: {notes}\n"
+            f"Your goal is to give 4 short paragraphs of meaningful advice. "
+            f"Be warm, helpful, and professional. Respond in {lang.upper()} language."
         )
+
         analysis = get_gpt_summary(prompt)
 
         html = (
@@ -119,7 +127,7 @@ def analyze_health():
             f"<p><strong>Name:</strong> {name}<br><strong>DOB:</strong> {dob} (Age: {age})<br>"
             f"<strong>Gender:</strong> {gender}<br><strong>Height:</strong> {height} cm<br>"
             f"<strong>Weight:</strong> {weight} kg<br><strong>Country:</strong> {country}<br>"
-            f"<strong>Concern:</strong> {concern}<br><strong>Description:</strong> {notes}<br>"
+            f"<strong>Concern:</strong> {concern}<br><strong>Brief Description:</strong> {notes}<br>"
             f"<strong>Referrer:</strong> {ref}<br><strong>Angel:</strong> {angel}</p>"
             f"<div>{analysis}</div>"
             f"<p style='margin-top:20px;background:#e6f7ff;padding:15px;border-left:4px solid #5E9CA0;'>"
