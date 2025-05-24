@@ -33,6 +33,33 @@ LANGUAGE = {
     }
 }
 
+PROMPTS = {
+    "en": {
+        "summary": lambda age, gender, country, concern, notes:
+            f"A {age}-year-old {gender} in {country} has concern '{concern}'. Description: {notes}. "
+            f"Write 4 helpful paragraphs for similar individuals. Do not address directly.",
+        "creative": lambda age, gender, country, concern, notes:
+            f"As a wellness coach, suggest 10 creative health ideas for someone in {country}, aged {age}, gender {gender}, with '{concern}'. "
+            f"Take into account: {notes}."
+    },
+    "zh": {
+        "summary": lambda age, gender, country, concern, notes:
+            f"一位{age}岁、性别为{gender}、来自{country}的人，有健康问题「{concern}」。说明如下：{notes}。"
+            f"请写4段建议，帮助其他有相似情况的人。请避免直接使用“你”来称呼。",
+        "creative": lambda age, gender, country, concern, notes:
+            f"作为一名健康教练，请为{country}一位{age}岁的{gender}，面临「{concern}」问题的人，提供10条创意健康建议。"
+            f"请参考以下描述：{notes}。"
+    },
+    "tw": {
+        "summary": lambda age, gender, country, concern, notes:
+            f"一名{age}歲的{gender}來自{country}，健康問題為「{concern}」，描述如下：{notes}。"
+            f"請撰寫4段建議，不要用「你」，要像是給其他人建議。",
+        "creative": lambda age, gender, country, concern, notes:
+            f"請以健康教練的身份，為{country}一位{age}歲的{gender}，健康問題為「{concern}」的人，"
+            f"提供10個創意建議。請根據這些描述：{notes}。"
+    }
+}
+
 def send_email(html_body, lang):
     subject = LANGUAGE.get(lang, LANGUAGE["en"])["email_subject"]
     msg = MIMEText(html_body, 'html', 'utf-8')
@@ -138,14 +165,8 @@ def health_analyze():
         )
         metrics = generate_metrics_with_ai(metrics_prompt)
 
-        summary_prompt = (
-            f"A {age}-year-old {gender} in {country} has concern '{concern}'. Description: {notes}. "
-            f"Write 4 helpful paragraphs for similar individuals. Do not address directly."
-        )
-        creative_prompt = (
-            f"As a wellness coach, suggest 10 creative health ideas for someone in {country}, aged {age}, gender {gender}, with '{concern}'. "
-            f"Take into account: {notes}."
-        )
+        summary_prompt = PROMPTS.get(lang, PROMPTS["en"])["summary"](age, gender, country, concern, notes)
+        creative_prompt = PROMPTS.get(lang, PROMPTS["en"])["creative"](age, gender, country, concern, notes)
 
         summary = get_openai_response(summary_prompt)
         creative = get_openai_response(creative_prompt, temp=0.85)
