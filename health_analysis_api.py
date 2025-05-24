@@ -42,14 +42,6 @@ PROMPTS = {
             f"請以健康教練的身份，為{country}一位{age}歲的{gender}，健康問題為「{concern}」的人，"
             f"提供10個創意建議。請根據這些描述：{notes}。"
     },
-    "en": {
-        "summary": lambda age, gender, country, concern, notes:
-            f"A {age}-year-old {gender} in {country} has concern '{concern}'. Description: {notes}. "
-            f"Write 4 helpful paragraphs for similar individuals. Do not address directly.",
-        "creative": lambda age, gender, country, concern, notes:
-            f"As a wellness coach, suggest 10 creative health ideas for someone in {country}, aged {age}, gender {gender}, with '{concern}'. "
-            f"Take into account: {notes}."
-    },
     "zh": {
         "summary": lambda age, gender, country, concern, notes:
             f"一位{age}歲、性別為{gender}、來自{country}的人，有健康問題「{concern}」。說明如下：{notes}。"
@@ -57,6 +49,14 @@ PROMPTS = {
         "creative": lambda age, gender, country, concern, notes:
             f"作為一名健康教練，請為{country}一位{age}歲的{gender}，面臨「{concern}」問題的人，提供10條創意健康建議。"
             f"請參考以下描述：{notes}。"
+    },
+    "en": {
+        "summary": lambda age, gender, country, concern, notes:
+            f"A {age}-year-old {gender} in {country} has concern '{concern}'. Description: {notes}. "
+            f"Write 4 helpful paragraphs for similar individuals. Do not address directly.",
+        "creative": lambda age, gender, country, concern, notes:
+            f"As a wellness coach, suggest 10 creative health ideas for someone in {country}, aged {age}, gender {gender}, with '{concern}'. "
+            f"Take into account: {notes}."
     }
 }
 
@@ -64,10 +64,10 @@ chart_prompts = {
     "tw": lambda age, gender, country, concern, notes:
         f"請為{country}一位{age}歲的{gender}產生健康圖表資料，主要問題是「{concern}」，補充說明為：{notes}。"
         f"請用 ### 開頭的標題分為3類，並為每類列出3項指標，格式為「指標: 數值%」。",
-    "en": lambda age, gender, country, concern, notes:
-        f"Generate health chart data for a {age}-year-old {gender} in {country} with concern '{concern}' and notes '{notes}'. "
-        f"Include 3 sections prefixed with ### title, and 3 indicators below each using format 'Label: Value%'.",
     "zh": lambda age, gender, country, concern, notes:
         f"請為{country}一位{age}歲的{gender}生成健康圖表資料，問題為「{concern}」，補充說明：{notes}。"
-        f"請用 ### 開頭的分類標題，共3類，並為每類列出3個指標，格式為“項目: 數值%”。"
+        f"請用 ### 開頭的分類標題，共3類，並為每類列出3個指標，格式為“項目: 數值%”。",
+    "en": lambda age, gender, country, concern, notes:
+        f"Generate health chart data for a {age}-year-old {gender} in {country} with concern '{concern}' and notes '{notes}'. "
+        f"Include 3 sections prefixed with ### title, and 3 indicators below each using format 'Label: Value%'."
 }
