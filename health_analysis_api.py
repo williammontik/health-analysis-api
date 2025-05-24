@@ -115,19 +115,21 @@ def health_analyze():
         angel    = data.get("angel")
         age      = compute_age(dob)
 
+        condition_desc = concern if concern != "Other" else notes
+
         metrics_prompt = (
-            f"Generate health chart data for a person of age {age}, gender {gender}, country {country}, condition '{concern}'. "
+            f"Generate health chart data for a person of age {age}, gender {gender}, country {country}, condition '{condition_desc}'. "
             f"Give 3 sections, each prefixed with ### title. Under each section, list 3 categories and values as 'Label: Value%'."
         )
         metrics = generate_metrics_with_ai(metrics_prompt)
 
         summary_prompt = (
-            f"Review health data of people of similar age ({age}), gender ({gender}), and country ({country}) facing '{concern}'. "
+            f"Review health data of people of similar age ({age}), gender ({gender}), and country ({country}) facing '{condition_desc}'. "
             f"Write 4 professional, generalized paragraphs of advice. Do not mention or address any person directly."
         )
         creative_prompt = (
             f"As a wellness consultant, suggest 10 creative, actionable health improvement tips for people of similar age ({age}), gender ({gender}), "
-            f"and country ({country}) experiencing '{concern}'. Use numbered format and group language only."
+            f"and country ({country}) experiencing '{condition_desc}'. Use numbered format and group language only."
         )
 
         summary = get_openai_response(summary_prompt)
@@ -176,7 +178,7 @@ def health_analyze():
             f"<p><strong>Name:</strong> {name}<br><strong>Date of Birth:</strong> {dob}<br>"
             f"<strong>Country:</strong> {country}<br><strong>Gender:</strong> {gender}<br><strong>Age:</strong> {age}<br>"
             f"<strong>Height:</strong> {height} cm<br><strong>Weight:</strong> {weight} kg<br>"
-            f"<strong>Concern:</strong> {concern}<br><strong>Brief Description:</strong> {notes}<br>"
+            f"<strong>Concern:</strong> {condition_desc}<br><strong>Brief Description:</strong> {notes}<br>"
             f"<strong>Referrer:</strong> {ref}<br><strong>Angel:</strong> {angel}</p>"
             f"{chart_html}"
             f"<div>{summary}</div>"
