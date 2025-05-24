@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, random, logging, smtplib
+import os, logging, smtplib
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -34,22 +34,6 @@ LANGUAGE = {
 }
 
 PROMPTS = {
-    "en": {
-        "summary": lambda age, gender, country, concern, notes:
-            f"A {age}-year-old {gender} in {country} has concern '{concern}'. Description: {notes}. "
-            f"Write 4 helpful paragraphs for similar individuals. Do not address directly.",
-        "creative": lambda age, gender, country, concern, notes:
-            f"As a wellness coach, suggest 10 creative health ideas for someone in {country}, aged {age}, gender {gender}, with '{concern}'. "
-            f"Take into account: {notes}."
-    },
-    "zh": {
-        "summary": lambda age, gender, country, concern, notes:
-            f"一位{age}岁、性别为{gender}、来自{country}的人，有健康问题「{concern}」。说明如下：{notes}。"
-            f"请写4段建议，帮助其他有相似情况的人。请避免直接使用“你”来称呼。",
-        "creative": lambda age, gender, country, concern, notes:
-            f"作为一名健康教练，请为{country}一位{age}岁的{gender}，面临「{concern}」问题的人，提供10条创意健康建议。"
-            f"请参考以下描述：{notes}。"
-    },
     "tw": {
         "summary": lambda age, gender, country, concern, notes:
             f"一名{age}歲的{gender}來自{country}，健康問題為「{concern}」，描述如下：{notes}。"
@@ -61,12 +45,6 @@ PROMPTS = {
 }
 
 chart_prompts = {
-    "en": lambda age, gender, country, concern, notes:
-        f"Generate health chart data for a {age}-year-old {gender} in {country} with concern '{concern}' and notes '{notes}'. "
-        f"Include 3 sections prefixed with ### title, and 3 indicators below each using format 'Label: Value%'.",
-    "zh": lambda age, gender, country, concern, notes:
-        f"请为{country}一位{age}岁的{gender}生成健康图表数据，问题为「{concern}」，补充说明：{notes}。"
-        f"请输出3个以 ### 开头的分类标题，并为每个分类生成3项指标，格式为“项目: 数值%”。",
     "tw": lambda age, gender, country, concern, notes:
         f"請為{country}一位{age}歲的{gender}產生健康圖表資料，主要問題是「{concern}」，補充說明為：{notes}。"
         f"請用 ### 開頭的標題分為3類，並為每類列出3項指標，格式為「指標: 數值%」。"
@@ -135,9 +113,9 @@ def generate_metrics_with_ai(prompt_text):
     except Exception as e:
         logging.warning(f"GPT metric error: {e}")
         return [
-            {"title": "Cognitive Health", "labels": ["Memory", "Focus", "Reaction"], "values": [65, 70, 60]},
-            {"title": "Emotional Health", "labels": ["Mood", "Stress", "Energy"], "values": [68, 55, 62]},
-            {"title": "Physical Ability", "labels": ["Balance", "Strength", "Coordination"], "values": [60, 70, 58]}
+            {"title": "認知健康", "labels": ["記憶力", "專注力", "反應速度"], "values": [65, 70, 60]},
+            {"title": "情緒健康", "labels": ["情緒", "壓力", "活力"], "values": [68, 55, 62]},
+            {"title": "身體能力", "labels": ["平衡", "力量", "協調性"], "values": [60, 70, 58]}
         ]
 
 def get_openai_response(prompt, temp=0.7):
@@ -150,13 +128,13 @@ def get_openai_response(prompt, temp=0.7):
         return result.choices[0].message.content
     except Exception as e:
         app.logger.error(f"OpenAI error: {e}")
-        return "⚠️ 无法生成内容。"
+        return "⚠️ 無法生成內容。"
 
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
     try:
         data = request.get_json(force=True)
-        lang = data.get("lang", "en")
+        lang = data.get("lang", "en").strip()
         content = LANGUAGE.get(lang, LANGUAGE["en"])
 
         name     = data.get("name")
@@ -166,25 +144,19 @@ def health_analyze():
         weight   = data.get("weight")
         country  = data.get("country")
         concern  = data.get("condition")
-        notes    = data.get("details", "") or "No additional description provided."
+        notes    = data.get("details", "") or "沒有提供補充說明。"
         ref      = data.get("referrer")
         angel    = data.get("angel")
         age      = compute_age(dob)
 
-        metrics_prompt = chart_prompts.get(lang, chart_prompts["en"])(age, gender, country, concern, notes)
+        metrics_prompt = chart_prompts.get(lang, chart_prompts["tw"])(age, gender, country, concern, notes)
         metrics = generate_metrics_with_ai(metrics_prompt)
 
-        summary_prompt = PROMPTS.get(lang, PROMPTS["en"])["summary"](age, gender, country, concern, notes)
-        creative_prompt = PROMPTS.get(lang, PROMPTS["en"])["creative"](age, gender, country, concern, notes)
+        summary_prompt = PROMPTS.get(lang, PROMPTS["tw"])["summary"](age, gender, country, concern, notes)
+        creative_prompt = PROMPTS.get(lang, PROMPTS["tw"])["creative"](age, gender, country, concern, notes)
 
         summary = get_openai_response(summary_prompt)
         creative = get_openai_response(creative_prompt, temp=0.85)
-
-        creative_titles = {
-            "en": "💡 Creative Support Ideas",
-            "zh": "💡 创意健康建议",
-            "tw": "💡 創意健康建議"
-        }
 
         chart_html = ""
         for metric in metrics:
@@ -200,7 +172,7 @@ def health_analyze():
             chart_html += "<br>"
 
         creative_html = (
-            f"<br><br><h3 style='font-size:24px; font-weight:bold;'>{creative_titles.get(lang, creative_titles['en'])}</h3><br>"
+            "<br><br><h3 style='font-size:24px; font-weight:bold;'>💡 創意健康建議</h3><br>"
         )
         creative_html += "".join(
             f"<p style='margin-bottom:14px;'>{line.strip()}</p>"
@@ -209,16 +181,16 @@ def health_analyze():
         creative_html += "<br>"
 
         footer = (
-            "<p style='color:#888;'>📩 本报告已通过电子邮件发送。我们使用 AI 技术分析健康数据，确保数据保护符合 PDPA。</p>"
+            "<p style='color:#888;'>📩 本報告已通過電子郵件發送。所有內容由 KataChat AI 系統生成，符合 PDPA 標準。</p>"
         )
 
         html = (
             f"<h4 style='text-align:center; font-size:24px;'>{content['report_title']}</h4>"
-            f"<p><strong>Legal Name:</strong> {name}<br><strong>Date of Birth:</strong> {dob}<br>"
-            f"<strong>Country:</strong> {country}<br><strong>Gender:</strong> {gender}<br><strong>Age:</strong> {age}<br>"
-            f"<strong>Height:</strong> {height} cm<br><strong>Weight:</strong> {weight} kg<br>"
-            f"<strong>Main Concern:</strong> {concern}<br><strong>Brief Description:</strong> {notes}<br>"
-            f"<strong>Referrer:</strong> {ref}<br><strong>Angel:</strong> {angel}</p>"
+            f"<p><strong>法定姓名:</strong> {name}<br><strong>出生日期:</strong> {dob}<br>"
+            f"<strong>國家:</strong> {country}<br><strong>性別:</strong> {gender}<br><strong>年齡:</strong> {age}<br>"
+            f"<strong>身高:</strong> {height} cm<br><strong>體重:</strong> {weight} kg<br>"
+            f"<strong>主要問題:</strong> {concern}<br><strong>簡要說明:</strong> {notes}<br>"
+            f"<strong>推薦人:</strong> {ref}<br><strong>關心我的人:</strong> {angel}</p>"
             f"{chart_html}"
             f"<div>{summary}</div>"
             f"{creative_html}"
