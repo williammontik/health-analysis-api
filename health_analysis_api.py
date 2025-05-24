@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, random, logging, smtplib, re
+import os, random, logging, smtplib
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -24,8 +24,8 @@ LANGUAGE = {
         "report_title": "🎉 Global Identical Health Insights"
     },
     "zh": {
-        "email_subject": "您的健康洞察报告",
-        "report_title": "🎉 全球健康洞察"
+        "email_subject": "您的健康洞察報告",
+        "report_title": "🎉 全球健康洞察（简体）"
     },
     "tw": {
         "email_subject": "您的健康洞察報告",
@@ -111,7 +111,7 @@ def get_openai_response(prompt, temp=0.7):
         return result.choices[0].message.content
     except Exception as e:
         app.logger.error(f"OpenAI error: {e}")
-        return "⚠️ Unable to generate response."
+        return "⚠️ 無法生成內容。"
 
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
@@ -150,6 +150,28 @@ def health_analyze():
         summary = get_openai_response(summary_prompt)
         creative = get_openai_response(creative_prompt, temp=0.85)
 
+        chart_html = ""
+        for metric in metrics:
+            chart_html += f"<strong>{metric['title']}</strong><br>"
+            for label, value in zip(metric['labels'], metric['values']):
+                chart_html += (
+                    f"<div style='display:flex; align-items:center; margin-bottom:8px;'>"
+                    f"<span style='width:180px;'>{label}</span>"
+                    f"<div style='flex:1; background:#eee; border-radius:5px; overflow:hidden;'>"
+                    f"<div style='width:{value}%; height:14px; background:#5E9CA0;'></div>"
+                    f"</div><span style='margin-left:10px;'>{value}%</span></div>"
+                )
+            chart_html += "<br>"
+
+        creative_html = (
+            "<br><br><h3 style='font-size:24px; font-weight:bold;'>💡 Creative Support Ideas</h3><br>"
+        )
+        creative_html += "".join(
+            f"<p style='margin-bottom:14px;'>{line.strip()}</p>"
+            for line in creative.split("\n") if line.strip()
+        )
+        creative_html += "<br>"
+
         footer = (
             '<div style="background-color:#e6f7ff; color:#00529B; padding:15px; '
             'border-left:4px solid #00529B; margin:20px 0;">'
@@ -164,58 +186,6 @@ def health_analyze():
             '<strong>PS:</strong> This report has also been sent to your email inbox and should arrive within 24 hours. '
             'If you\'d like to discuss it further, feel free to reach out — we’re happy to arrange a 15-minute call at your convenience.</p>'
         )
-
-        if lang in ["zh", "tw"]:
-            try:
-                translation_prompt = (
-                    f"You are a translator. Translate the following health report into {'Simplified Chinese' if lang == 'zh' else 'Traditional Chinese'}.\n"
-                    f"Preserve formatting, emojis, line breaks, and section titles exactly.\n\n"
-                    f"===CHART TITLES===\n" +
-                    "\n".join([m["title"] for m in metrics]) +
-                    f"\n\n===SUMMARY===\n{summary}\n\n===CREATIVE===\n{creative}\n\n===FOOTER===\n{footer}"
-                )
-                translated = get_openai_response(translation_prompt, temp=0.4)
-
-                # Safe section parsing using regex
-                chart_titles_block = re.search(r"===CHART TITLES===\s*(.*?)\s*===SUMMARY===", translated, re.DOTALL)
-                summary_block = re.search(r"===SUMMARY===\s*(.*?)\s*===CREATIVE===", translated, re.DOTALL)
-                creative_block = re.search(r"===CREATIVE===\s*(.*?)\s*===FOOTER===", translated, re.DOTALL)
-                footer_block = re.search(r"===FOOTER===\s*(.*)", translated, re.DOTALL)
-
-                if chart_titles_block and summary_block and creative_block and footer_block:
-                    translated_titles = chart_titles_block.group(1).strip().split("\n")
-                    for i, title in enumerate(translated_titles):
-                        if i < len(metrics):
-                            metrics[i]["title"] = title.strip()
-                    summary = summary_block.group(1).strip()
-                    creative = creative_block.group(1).strip()
-                    footer = footer_block.group(1).strip()
-                else:
-                    logging.warning("GPT translation format invalid or incomplete.")
-            except Exception as e:
-                logging.warning(f"Translation failed: {e}")
-
-        creative_html = (
-            "<br><br><h3 style='font-size:24px; font-weight:bold;'>💡 Creative Support Ideas</h3><br>"
-        )
-        creative_html += "".join(
-            f"<p style='margin-bottom:14px;'>{line.strip()}</p>"
-            for line in creative.split("\n") if line.strip()
-        )
-        creative_html += "<br>"
-
-        chart_html = ""
-        for metric in metrics:
-            chart_html += f"<strong>{metric['title']}</strong><br>"
-            for label, value in zip(metric['labels'], metric['values']):
-                chart_html += (
-                    f"<div style='display:flex; align-items:center; margin-bottom:8px;'>"
-                    f"<span style='width:180px;'>{label}</span>"
-                    f"<div style='flex:1; background:#eee; border-radius:5px; overflow:hidden;'>"
-                    f"<div style='width:{value}%; height:14px; background:#5E9CA0;'></div>"
-                    f"</div><span style='margin-left:10px;'>{value}%</span></div>"
-                )
-            chart_html += "<br>"
 
         html = (
             f"<h4 style='text-align:center; font-size:24px;'>{content['report_title']}</h4>"
