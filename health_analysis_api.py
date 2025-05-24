@@ -47,42 +47,24 @@ def compute_age(dob):
     except:
         return 0
 
-def generate_metrics_with_ai(prompt_text):
+def generate_metrics():
+    return [
+        {"title": "BMI Analysis", "labels": ["Similar Individuals", "Regional Avg", "Global Avg"], "values": [random.randint(19, 30), 23, 24]},
+        {"title": "Blood Pressure", "labels": ["Similar Individuals", "Regional Avg", "Global Avg"], "values": [random.randint(110, 160), 135, 128]},
+        {"title": "Cholesterol", "labels": ["Similar Individuals", "Regional Avg", "Global Avg"], "values": [random.randint(180, 250), 210, 220]}
+    ]
+
+def get_openai_response(prompt, temp=0.7):
     try:
-        response = client.chat.completions.create(
+        result = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt_text}],
-            temperature=0.7
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temp
         )
-        lines = response.choices[0].message.content.strip().split("\n")
-        metrics = []
-        current_title = ""
-        labels = []
-        values = []
-        for line in lines:
-            if line.startswith("###"):
-                if current_title:
-                    metrics.append({
-                        "title": current_title,
-                        "labels": labels,
-                        "values": values
-                    })
-                current_title = line[3:].strip()
-                labels, values = [], []
-            elif ":" in line:
-                label, val = line.split(":")
-                labels.append(label.strip())
-                values.append(int(val.strip().replace("%", "")))
-        if current_title:
-            metrics.append({
-                "title": current_title,
-                "labels": labels,
-                "values": values
-            })
-        return metrics
+        return result.choices[0].message.content
     except Exception as e:
-        app.logger.error(f"OpenAI chart error: {e}")
-        return []
+        app.logger.error(f"OpenAI error: {e}")
+        return "⚠️ Unable to generate response."
 
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
@@ -103,11 +85,7 @@ def health_analyze():
         angel    = data.get("angel")
         age      = compute_age(dob)
 
-        metrics_prompt = (
-            f"Generate health chart data for a person of age {age}, gender {gender}, country {country}, condition '{concern}'. "
-            f"Give 3 sections, each prefixed with ### title. Under each section, list 3 categories and values as 'Label: Value%'."
-        )
-        metrics = generate_metrics_with_ai(metrics_prompt)
+        metrics = generate_metrics()
 
         summary_prompt = (
             f"Review health data of people of similar age ({age}), gender ({gender}), and country ({country}) facing '{concern}'. "
