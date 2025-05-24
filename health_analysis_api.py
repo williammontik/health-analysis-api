@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, random
+import os, random, logging, smtplib
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -12,6 +12,7 @@ CORS(app)
 logging.basicConfig(level=logging.DEBUG)
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
@@ -23,12 +24,12 @@ LANGUAGE = {
         "report_title": "🎉 Global Identical Health Insights"
     },
     "zh": {
-        "email_subject": "您的健康洞察报告",
-        "report_title": "🎉 全球健康洞察"
+        "email_subject": "您的健康洞察報告",
+        "report_title": "🎉 全球健康洞察（简体）"
     },
     "tw": {
         "email_subject": "您的健康洞察報告",
-        "report_title": "🎉 全球健康洞察"
+        "report_title": "🎉 全球健康洞察（繁體）"
     }
 }
 
@@ -62,12 +63,19 @@ def generate_metrics_with_ai(prompt_text):
             temperature=0.7
         )
         lines = response.choices[0].message.content.strip().split("\n")
-        metrics, title, labels, values = [], "", [], []
+        metrics = []
+        current_title = ""
+        labels = []
+        values = []
         for line in lines:
             if line.startswith("###"):
-                if title and labels and values:
-                    metrics.append({"title": title, "labels": labels, "values": values})
-                title = line[3:].strip()
+                if current_title and labels and values:
+                    metrics.append({
+                        "title": current_title,
+                        "labels": labels,
+                        "values": values
+                    })
+                current_title = line[3:].strip()
                 labels, values = [], []
             elif ":" in line:
                 label, val = line.split(":", 1)
@@ -76,8 +84,12 @@ def generate_metrics_with_ai(prompt_text):
                     values.append(int(val.strip().replace("%", "")))
                 except:
                     values.append(50)
-        if title and labels and values:
-            metrics.append({"title": title, "labels": labels, "values": values})
+        if current_title and labels and values:
+            metrics.append({
+                "title": current_title,
+                "labels": labels,
+                "values": values
+            })
         if not metrics:
             raise ValueError("GPT returned no metrics.")
         return metrics
@@ -99,7 +111,7 @@ def get_openai_response(prompt, temp=0.7):
         return result.choices[0].message.content
     except Exception as e:
         app.logger.error(f"OpenAI error: {e}")
-        return "⚠️ Unable to generate response."
+        return "⚠️ 無法生成內容。"
 
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
