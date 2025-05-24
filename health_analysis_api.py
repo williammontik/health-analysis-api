@@ -34,7 +34,7 @@ LANGUAGE = {
 }
 
 def send_email(html_body, lang):
-    subject = LANGUAGE.get(lang, LANGUAGE["en"])["email_subject"]
+    subject = LANGUAGE.get(lang, LANGUAGE["en"])['email_subject']
     msg = MIMEText(html_body, 'html', 'utf-8')
     msg['Subject'] = subject
     msg['From'] = SMTP_USERNAME
@@ -132,21 +132,23 @@ def health_analyze():
         angel    = data.get("angel")
         age      = compute_age(dob)
 
-        metrics_prompt = (
-            f"Generate health chart data for a {age}-year-old {gender} in {country} with concern '{concern}' and notes '{notes}'. "
-            f"Include 3 sections prefixed with ### title, and 3 indicators below each using format 'Label: Value%'."
-        )
+        if lang in ("zh", "tw"):
+            gender = "男性" if gender == "男" else "女性" if gender == "女" else gender
+
+        if lang == "zh":
+            metrics_prompt = f"為一位{age}歲的{gender}，在{country}，主要健康問題是「{concern}」，描述為「{notes}」，生成健康圖表數據。請包含3個以 ### 開頭的區段，每個區段下列出3個指標，格式為「指標名稱: 百分比%」。"
+            summary_prompt = f"這是一位{age}歲的{gender}，來自{country}，健康問題是「{concern}」，補充說明：「{notes}」。請撰寫四段說明，幫助類似情況的人，不要直接稱呼。"
+            creative_prompt = f"作為一位健康教練，請針對一位{age}歲、性別{gender}、來自{country}、有「{concern}」問題的人，根據「{notes}」，提出10個創意健康建議。"
+        elif lang == "tw":
+            metrics_prompt = f"針對一位{age}歲的{gender}，位於{country}，主要健康問題為「{concern}」，說明為「{notes}」，生成健康圖表資料。請產生3個以 ### 開頭的區塊，每塊有3個指標，格式為「項目名稱: 百分比%」。"
+            summary_prompt = f"這是一位{age}歲的{gender}，來自{country}，面臨「{concern}」問題，補充說明：「{notes}」。請撰寫四段簡潔內容，提供給類似情況的人，不要直接稱呼對方。"
+            creative_prompt = f"請以健康顧問身份，針對{country}地區、{age}歲、性別{gender}、主要問題「{concern}」的人，結合補充說明「{notes}」，提出10項有創意的健康建議。"
+        else:
+            metrics_prompt = f"Generate health chart data for a {age}-year-old {gender} in {country} with concern '{concern}' and notes '{notes}'. Include 3 sections prefixed with ### title, and 3 indicators below each using format 'Label: Value%'."
+            summary_prompt = f"A {age}-year-old {gender} in {country} has concern '{concern}'. Description: {notes}. Write 4 helpful paragraphs for similar individuals. Do not address directly."
+            creative_prompt = f"As a wellness coach, suggest 10 creative health ideas for someone in {country}, aged {age}, gender {gender}, with '{concern}'. Take into account: {notes}."
+
         metrics = generate_metrics_with_ai(metrics_prompt)
-
-        summary_prompt = (
-            f"A {age}-year-old {gender} in {country} has concern '{concern}'. Description: {notes}. "
-            f"Write 4 helpful paragraphs for similar individuals. Do not address directly."
-        )
-        creative_prompt = (
-            f"As a wellness coach, suggest 10 creative health ideas for someone in {country}, aged {age}, gender {gender}, with '{concern}'. "
-            f"Take into account: {notes}."
-        )
-
         summary = get_openai_response(summary_prompt)
         creative = get_openai_response(creative_prompt, temp=0.85)
 
@@ -163,9 +165,7 @@ def health_analyze():
                 )
             chart_html += "<br>"
 
-        creative_html = (
-            "<br><br><h3 style='font-size:24px; font-weight:bold;'>💡 Creative Support Ideas</h3><br>"
-        )
+        creative_html = "<br><br><h3 style='font-size:24px; font-weight:bold;'>💡 Creative Support Ideas</h3><br>"
         creative_html += "".join(
             f"<p style='margin-bottom:14px;'>{line.strip()}</p>"
             for line in creative.split("\n") if line.strip()
