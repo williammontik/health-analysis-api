@@ -107,16 +107,42 @@ def health_analyze():
 
         if lang == "zh":
             metrics_prompt = (
-                f"请以中文回答。假设一位{age}岁的{gender}，来自{country}，主要健康问题是「{concern}」，补充描述为「{notes}」。"
-                f"请生成健康图表数据，包含3个部分（以 ### 开头的中文标题），每个部分下列出3项指标（格式为：项目名称: 数值%）。"
-            )
+    f"请用中文作答。一位{age}岁的{gender}（例如：男性），来自{country}（例如：新加坡），健康问题是「{concern}」（例如：高血压），补充说明为「{notes}」。"
+    f"请生成健康图表数据，分成三个主题（以 ### 开头，全部为中文标题），每个主题下列出三个指标，格式为「项目名称: 数值%」。"
+    f"例子：### 饮食习惯
+水果摄入: 80%
+油脂摄入: 60%
+... 请继续"
+) if lang == "zh" else (
+    f"請用繁體中文作答。一位{age}歲的{gender}（例如：女性），來自{country}（例如：台灣），健康問題是「{concern}」（例如：糖尿病），補充說明為「{notes}」。"
+    f"請產生健康圖表資料，共三個主題（每個以 ### 開頭並為中文標題），每個主題列出三個指標，格式為「項目名稱: 百分比%」。"
+    f"例子：### 飲食習慣
+蔬果攝取: 80%
+糖分攝取: 60%
+... 請繼續"
+) if lang == "tw" else (
+    f"Generate health chart data for a {age}-year-old {gender} in {country} with concern '{concern}' and notes '{notes}'. Include 3 sections prefixed with ### title, and 3 indicators below each using format 'Label: Value%'."
+)
             summary_prompt = f"这是一位{age}岁的{gender}，来自{country}，健康问题是「{concern}」，补充说明：「{notes}」。请撰写四段说明，不要直接称呼对方。请使用简体中文。"
             creative_prompt = f"作为健康顾问，请针对{age}岁、性别{gender}、居住在{country}、健康问题是「{concern}」的人，结合「{notes}」提供10个创意健康建议。请使用简体中文。"
         elif lang == "tw":
             metrics_prompt = (
-                f"請以繁體中文回答。假設一位{age}歲的{gender}，來自{country}，主要健康問題是「{concern}」，補充說明為「{notes}」。"
-                f"請產生健康圖表資料，分為3個主題（每個以 ### 開頭，使用繁體中文），每個主題列出3個指標（格式為：項目名稱: 百分比%）。"
-            )
+    f"请用中文作答。一位{age}岁的{gender}（例如：男性），来自{country}（例如：新加坡），健康问题是「{concern}」（例如：高血压），补充说明为「{notes}」。"
+    f"请生成健康图表数据，分成三个主题（以 ### 开头，全部为中文标题），每个主题下列出三个指标，格式为「项目名称: 数值%」。"
+    f"例子：### 饮食习惯
+水果摄入: 80%
+油脂摄入: 60%
+... 请继续"
+) if lang == "zh" else (
+    f"請用繁體中文作答。一位{age}歲的{gender}（例如：女性），來自{country}（例如：台灣），健康問題是「{concern}」（例如：糖尿病），補充說明為「{notes}」。"
+    f"請產生健康圖表資料，共三個主題（每個以 ### 開頭並為中文標題），每個主題列出三個指標，格式為「項目名稱: 百分比%」。"
+    f"例子：### 飲食習慣
+蔬果攝取: 80%
+糖分攝取: 60%
+... 請繼續"
+) if lang == "tw" else (
+    f"Generate health chart data for a {age}-year-old {gender} in {country} with concern '{concern}' and notes '{notes}'. Include 3 sections prefixed with ### title, and 3 indicators below each using format 'Label: Value%'."
+)
             summary_prompt = f"這是一位{age}歲的{gender}，來自{country}，健康問題是「{concern}」，補充說明：「{notes}」。請撰寫四段內容，不要直接稱呼對方。請使用繁體中文。"
             creative_prompt = f"請以健康顧問身份，針對{age}歲的{gender}，來自{country}，健康問題為「{concern}」，結合補充說明「{notes}」，提供10項創意健康建議。請使用繁體中文。"
         else:
