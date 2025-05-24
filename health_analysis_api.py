@@ -116,18 +116,20 @@ def health_analyze():
         age      = compute_age(dob)
 
         metrics_prompt = (
-            f"Generate health chart data for a person of age {age}, gender {gender}, country {country}, condition '{concern}'. "
-            f"Give 3 sections, each prefixed with ### title. Under each section, list 3 categories and values as 'Label: Value%'."
+            f"Generate health chart data for a {age}-year-old {gender} in {country} with condition '{concern}'. "
+            f"The concern is described as: {notes}. "
+            f"Give 3 sections, each prefixed with ### title. Under each, list 3 categories and values as 'Label: Value%'."
         )
         metrics = generate_metrics_with_ai(metrics_prompt)
 
         summary_prompt = (
-            f"Review health data of people of similar age ({age}), gender ({gender}), and country ({country}) facing '{notes}'. "
-            f"Write 4 professional, generalized paragraphs of advice. Do not mention or address any person directly."
+            f"Review the health condition '{concern}' in detail, considering this description: '{notes}'. "
+            f"Write 4 helpful and medically sound paragraphs tailored for a {age}-year-old {gender} in {country}. "
+            f"Never mention or speak to the person directly. Do not repeat the description word-for-word."
         )
         creative_prompt = (
-            f"As a wellness consultant, suggest 10 creative, actionable health improvement tips for people of similar age ({age}), gender ({gender}), "
-            f"and country ({country}) experiencing '{notes}'. Use numbered format and group language only."
+            f"As a wellness coach, offer 10 creative, helpful tips to improve quality of life for someone dealing with '{concern}'. "
+            f"Base this on the context: {notes}. Be practical and community-sensitive to {country} culture."
         )
 
         summary = get_openai_response(summary_prompt)
@@ -167,12 +169,12 @@ def health_analyze():
             '<p style="background-color:#e6f7ff; color:#00529B; padding:15px; '
             'border-left:4px solid #00529B; margin:20px 0;">'
             '<strong>PS:</strong> This report has also been sent to your email inbox and should arrive within 24 hours. '
-            'If you\'d like to discuss it further, feel free to reach out — we’re happy to arrange a 15-minute call at your convenience.'</p>'
+            'If you would like to discuss it further, feel free to reach out — we are happy to arrange a 15-minute call at your convenience.</p>'
         )
 
         html = (
             f"<h4 style='text-align:center; font-size:24px;'>{content['report_title']}</h4>"
-            f"<p><strong>Full Name:</strong> {name}<br><strong>Date of Birth:</strong> {dob}<br>"
+            f"<p><strong>Legal Name:</strong> {name}<br><strong>DOB:</strong> {dob}<br>"
             f"<strong>Country:</strong> {country}<br><strong>Gender:</strong> {gender}<br><strong>Age:</strong> {age}<br>"
             f"<strong>Height:</strong> {height} cm<br><strong>Weight:</strong> {weight} kg<br>"
             f"<strong>Concern:</strong> {concern}<br><strong>Brief Description:</strong> {notes}<br>"
