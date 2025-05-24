@@ -112,8 +112,14 @@ def health_analyze():
                 )
             chart_html += "<br>"
 
-        creative_html = "<h3>💡 Creative Support Ideas</h3>"
-        creative_html += "".join(f"<p>{line.strip()}</p>" for line in creative.split("\n") if line.strip())
+        creative_html = (
+            "<br><h3 style='font-size:24px; font-weight:bold;'>💡 Creative Support Ideas</h3><br>"
+        )
+        creative_html += "".join(
+            f"<p style='margin-bottom:14px;'>{line.strip()}</p>"
+            for line in creative.split("\n") if line.strip()
+        )
+        creative_html += "<br>"
 
         footer = (
             '<div style="background-color:#e6f7ff; color:#00529B; padding:15px; '
