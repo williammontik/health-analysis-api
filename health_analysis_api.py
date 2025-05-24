@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, random, logging, smtplib
+import os, logging, smtplib, random
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -12,7 +12,6 @@ CORS(app)
 logging.basicConfig(level=logging.DEBUG)
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 SMTP_USERNAME = "kata.chatbot@gmail.com"
@@ -63,19 +62,12 @@ def generate_metrics_with_ai(prompt_text):
             temperature=0.7
         )
         lines = response.choices[0].message.content.strip().split("\n")
-        metrics = []
-        current_title = ""
-        labels = []
-        values = []
+        metrics, title, labels, values = [], "", [], []
         for line in lines:
             if line.startswith("###"):
-                if current_title and labels and values:
-                    metrics.append({
-                        "title": current_title,
-                        "labels": labels,
-                        "values": values
-                    })
-                current_title = line[3:].strip()
+                if title and labels and values:
+                    metrics.append({"title": title, "labels": labels, "values": values})
+                title = line[3:].strip()
                 labels, values = [], []
             elif ":" in line:
                 label, val = line.split(":", 1)
@@ -84,12 +76,8 @@ def generate_metrics_with_ai(prompt_text):
                     values.append(int(val.strip().replace("%", "")))
                 except:
                     values.append(50)
-        if current_title and labels and values:
-            metrics.append({
-                "title": current_title,
-                "labels": labels,
-                "values": values
-            })
+        if title and labels and values:
+            metrics.append({"title": title, "labels": labels, "values": values})
         if not metrics:
             raise ValueError("GPT returned no metrics.")
         return metrics
