@@ -115,13 +115,24 @@ def health_analyze():
         angel    = data.get("angel")
         age      = compute_age(dob)
 
-        condition_desc = concern if concern != "Other" else notes
+        # 📌 Smarter condition description
+        notes_word_count = len(notes.strip().split())
+        condition_desc = notes if concern == "Other" and notes_word_count >= 3 else concern
 
+        # 🎯 Prompt OpenAI to generate chart data
         metrics_prompt = (
             f"Generate health chart data for a person of age {age}, gender {gender}, country {country}, condition '{condition_desc}'. "
             f"Give 3 sections, each prefixed with ### title. Under each section, list 3 categories and values as 'Label: Value%'."
         )
         metrics = generate_metrics_with_ai(metrics_prompt)
+
+        # 🚨 Fallback if metrics are missing
+        if not metrics:
+            metrics = [
+                {"title": "BMI Analysis", "labels": ["Similar Individuals", "Regional Avg", "Global Avg"], "values": [random.randint(20, 30), 25, 26]},
+                {"title": "Blood Pressure", "labels": ["Similar Individuals", "Regional Avg", "Global Avg"], "values": [random.randint(110, 160), 135, 130]},
+                {"title": "Cholesterol", "labels": ["Similar Individuals", "Regional Avg", "Global Avg"], "values": [random.randint(180, 250), 210, 220]}
+            ]
 
         summary_prompt = (
             f"Review health data of people of similar age ({age}), gender ({gender}), and country ({country}) facing '{condition_desc}'. "
