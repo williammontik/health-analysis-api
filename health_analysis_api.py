@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, random, logging, smtplib
+import os, random, logging, smtplib, re
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -165,32 +165,33 @@ def health_analyze():
             'If you\'d like to discuss it further, feel free to reach out — we’re happy to arrange a 15-minute call at your convenience.</p>'
         )
 
-        # 🌐 Translation logic if lang is zh or tw
         if lang in ["zh", "tw"]:
             try:
                 translation_prompt = (
-                    f"Please translate the following health content into {'Simplified' if lang == 'zh' else 'Traditional'} Chinese. "
-                    f"Maintain formatting, emojis, and medical accuracy. Do NOT skip or summarize:\n\n"
+                    f"You are a translator. Translate the following health report into {'Simplified Chinese' if lang == 'zh' else 'Traditional Chinese'}.\n"
+                    f"Preserve formatting, emojis, line breaks, and section titles exactly.\n\n"
                     f"===CHART TITLES===\n" +
                     "\n".join([m["title"] for m in metrics]) +
                     f"\n\n===SUMMARY===\n{summary}\n\n===CREATIVE===\n{creative}\n\n===FOOTER===\n{footer}"
                 )
                 translated = get_openai_response(translation_prompt, temp=0.4)
 
-                parts = translated.split("===SUMMARY===")
-                if len(parts) > 1:
-                    chart_titles_block, summary_block = parts
-                    summary_block, creative_block = summary_block.split("===CREATIVE===")
-                    creative_block, footer_block = creative_block.split("===FOOTER===")
+                # Safe section parsing using regex
+                chart_titles_block = re.search(r"===CHART TITLES===\s*(.*?)\s*===SUMMARY===", translated, re.DOTALL)
+                summary_block = re.search(r"===SUMMARY===\s*(.*?)\s*===CREATIVE===", translated, re.DOTALL)
+                creative_block = re.search(r"===CREATIVE===\s*(.*?)\s*===FOOTER===", translated, re.DOTALL)
+                footer_block = re.search(r"===FOOTER===\s*(.*)", translated, re.DOTALL)
 
-                    translated_titles = chart_titles_block.strip().split("\n")
+                if chart_titles_block and summary_block and creative_block and footer_block:
+                    translated_titles = chart_titles_block.group(1).strip().split("\n")
                     for i, title in enumerate(translated_titles):
                         if i < len(metrics):
                             metrics[i]["title"] = title.strip()
-
-                    summary = summary_block.strip()
-                    creative = creative_block.strip()
-                    footer = footer_block.strip()
+                    summary = summary_block.group(1).strip()
+                    creative = creative_block.group(1).strip()
+                    footer = footer_block.group(1).strip()
+                else:
+                    logging.warning("GPT translation format invalid or incomplete.")
             except Exception as e:
                 logging.warning(f"Translation failed: {e}")
 
