@@ -173,7 +173,8 @@ def health_analyze():
 
         html = (
             f"<h4 style='text-align:center; font-size:24px;'>{content['report_title']}</h4>"
-            f"<p><strong>Country:</strong> {country}<br><strong>Gender:</strong> {gender}<br><strong>Age:</strong> {age}<br>"
+            f"<p><strong>Name:</strong> {name}<br><strong>Date of Birth:</strong> {dob}<br>"
+            f"<strong>Country:</strong> {country}<br><strong>Gender:</strong> {gender}<br><strong>Age:</strong> {age}<br>"
             f"<strong>Height:</strong> {height} cm<br><strong>Weight:</strong> {weight} kg<br>"
             f"<strong>Concern:</strong> {concern}<br><strong>Brief Description:</strong> {notes}<br>"
             f"<strong>Referrer:</strong> {ref}<br><strong>Angel:</strong> {angel}</p>"
