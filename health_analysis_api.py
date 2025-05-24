@@ -25,7 +25,12 @@ LANGUAGE = {
         "response_lang": "You are a helpful assistant. Always reply in English.",
         "creative_header": "💡 Creative Support Ideas",
         "fallback_error": "⚠️ Sorry, something went wrong. Please try again.",
-        "footer": "<div style=\"background-color:#e6f7ff; color:#00529B; padding:15px; border-left:4px solid #00529B; margin:20px 0;\">\n<strong>Insights generated through analysis of:</strong><br>\n1. Our medical profiles database<br>\n2. Global health benchmarks<br>\n<em>All data processed with strict compliance.</em>\n</div>"
+        "footer": """<div style="background-color:#e6f7ff; color:#00529B; padding:15px; border-left:4px solid #00529B; margin:20px 0;">
+<strong>Insights generated through analysis of:</strong><br>
+1. Our medical profiles database<br>
+2. Global health benchmarks<br>
+<em>All data processed with strict compliance.</em>
+</div>"""
     },
     "zh": {
         "email_subject": "您的健康洞察报告",
@@ -33,7 +38,12 @@ LANGUAGE = {
         "response_lang": "你是一位只用简体中文回答的健康顾问。",
         "creative_header": "💡 创意支持建议",
         "fallback_error": "⚠️ 抱歉，目前系统忙碌，请稍后再试。",
-        "footer": "<div style=\"background-color:#e6f7ff; color:#00529B; padding:15px; border-left:4px solid #00529B; margin:20px 0;\">\n<strong>本报告通过分析以下数据生成:</strong><br>\n1. 匿名医疗资料库<br>\n2. 全球健康基准数据<br>\n<em>所有数据处理均符合隐私保护法规</em>\n</div>"
+        "footer": """<div style="background-color:#e6f7ff; color:#00529B; padding:15px; border-left:4px solid #00529B; margin:20px 0;">
+<strong>本报告通过分析以下数据生成:</strong><br>
+1. 匿名医疗资料库<br>
+2. 全球健康基准数据<br>
+<em>所有数据处理均符合隐私保护法规</em>
+</div>"""
     },
     "tw": {
         "email_subject": "您的健康洞察報告",
@@ -41,7 +51,12 @@ LANGUAGE = {
         "response_lang": "你是一位只用繁體中文回答的健康顧問。",
         "creative_header": "💡 創意支持建議",
         "fallback_error": "⚠️ 抱歉，系統忙碌中，請稍後再試。",
-        "footer": "<div style=\"background-color:#e6f7ff; color:#00529B; padding:15px; border-left:4px solid #00529B; margin:20px 0;\">\n<strong>本報告通過分析以下數據生成:</strong><br>\n1. 匿名醫療資料庫<br>\n2. 全球健康基準數據<br>\n<em>所有數據處理均符合隱私保護法規</em>\n</div>"
+        "footer": """<div style="background-color:#e6f7ff; color:#00529B; padding:15px; border-left:4px solid #00529B; margin:20px 0;">
+<strong>本報告通過分析以下數據生成:</strong><br>
+1. 匿名醫療資料庫<br>
+2. 全球健康基準數據<br>
+<em>所有數據處理均符合隱私保護法規</em>
+</div>"""
     }
 }
 
@@ -97,8 +112,10 @@ def generate_metrics_with_ai(prompt_text, lang="en"):
             elif ":" in line:
                 label, val = line.split(":", 1)
                 labels.append(label.strip())
-                try: values.append(int(val.strip().replace("%", "")))
-                except: values.append(50)
+                try:
+                    values.append(int(val.strip().replace("%", "")))
+                except:
+                    values.append(50)
         if current_title and labels and values:
             metrics.append({"title": current_title, "labels": labels, "values": values})
         return metrics or default_metrics(lang)
@@ -144,14 +161,14 @@ def health_analyze():
         angel = data.get("angel")
         age = compute_age(dob)
 
-        if lang == "zh":
-            metrics_prompt = f"请生成一个关于{age}岁{gender}，来自{country}，健康问题为「{concern}」的健康图表。请列出三个主题（以 ### 开头），每个包含三个指标，格式为‘指标: 数值%’。"
-        elif lang == "tw":
-            metrics_prompt = f"請針對{age}歲{gender}，來自{country}，健康問題為「{concern}」，生成健康圖表內容。每個主題以 ### 開頭，列出三個百分比項目，格式為‘項目: 數值%’。"
-        else:
-            metrics_prompt = f"Generate health chart data for a {age}-year-old {gender} in {country} with concern '{concern}' and notes '{notes}'. Include 3 sections prefixed with ### and 3 indicators below each using 'Label: Value%'."
-
-        metrics = generate_metrics_with_ai(metrics_prompt, lang)
+        # Prompts
+        metrics_prompt = (
+            f"请生成一个关于{age}岁{gender}，来自{country}，健康问题为「{concern}」的健康图表。请列出三个主题（以 ### 开头），每个包含三个指标，格式为‘指标: 数值%’。"
+            if lang == "zh" else
+            f"請針對{age}歲{gender}，來自{country}，健康問題為「{concern}」，生成健康圖表內容。每個主題以 ### 開頭，列出三個百分比項目，格式為‘項目: 數值%’。"
+            if lang == "tw" else
+            f"Generate health chart data for a {age}-year-old {gender} in {country} with concern '{concern}' and notes '{notes}'. Include 3 sections prefixed with ### and 3 indicators below each using 'Label: Value%'."
+        )
 
         summary_prompt = (
             f"一位{age}岁{gender}，来自{country}，主要健康问题是「{concern}」，详细说明为「{notes}」。请为类似情况的人写四段建议。"
@@ -160,6 +177,7 @@ def health_analyze():
             if lang == "tw" else
             f"A {age}-year-old {gender} in {country} has concern '{concern}'. Description: {notes}. Write 4 helpful paragraphs."
         )
+
         creative_prompt = (
             f"作为健康顾问，请给出10个适合{age}岁{gender}（{country}）有“{concern}”困扰者的创意健康建议，结合说明「{notes}」。"
             if lang == "zh" else
@@ -168,9 +186,11 @@ def health_analyze():
             f"As a wellness coach, suggest 10 creative health ideas for a {age}-year-old {gender} in {country} facing '{concern}'. Consider: {notes}."
         )
 
+        metrics = generate_metrics_with_ai(metrics_prompt, lang)
         summary = html.escape(ask_gpt(summary_prompt, lang))
         creative = html.escape(ask_gpt(creative_prompt, lang, temp=0.85))
 
+        # Build HTML result
         chart_html = ""
         for m in metrics:
             chart_html += f"<strong>{m['title']}</strong><br>"
