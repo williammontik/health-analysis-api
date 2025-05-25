@@ -179,15 +179,39 @@ def health_analyze():
                 )
             html += "<br>"
 
-        creative_html = "<br><br><h3>💡</h3><br>" + "".join(f"<p>{line}</p>" for line in creative.split("\n") if line)
-        html += summary + creative_html + f"<p style='color:#888;'>{labels['footer']}</p>"
+        # ✨ Final Report Sections (Localized)
+        summary_title = {"en": "🧠 Summary:", "zh": "🧠 总结：", "tw": "🧠 摘要："}.get(lang, "🧠 Summary:")
+        suggestion_title = {"en": "💡 Creative Suggestions:", "zh": "💡 创意建议：", "tw": "💡 創意建議："}
+        disclaimer_title = {"en": "🛡️ Disclaimer:", "zh": "🛡️ 免责声明：", "tw": "🛡️ 免責聲明："}
+        disclaimer_text = {
+            "en": "🩺 This platform offers general lifestyle suggestions. Please consult a licensed medical professional for diagnosis or treatment decisions.",
+            "zh": "🩺 本平台提供的是一般生活方式建议，请在需要时向专业医生咨询，以获取诊断或治疗意见。",
+            "tw": "🩺 本平台僅提供一般生活建議，如有需要，請諮詢專業醫生以獲取診斷或治療建議。"
+        }
+
+        html += f"<br><h3 style='font-size:22px;'>{summary_title}</h3>"
+        for para in summary.split("\n"):
+            if para.strip():
+                html += f"<p style='line-height:1.7;'>{para.strip()}</p>"
+
+        html += f"<br><h3 style='font-size:24px;'>{suggestion_title.get(lang)}</h3><br>"
+        for line in creative.split("\n"):
+            if line.strip():
+                html += f"<p style='margin:12px 0;font-size:17px;'>{line.strip()}</p>"
+
+        html += (
+            f"<br><br><p style='font-size:16px;'><strong>{disclaimer_title.get(lang)}</strong></p>"
+            f"<p style='font-size:15px;line-height:1.6;'>{disclaimer_text.get(lang)}</p>"
+        )
+
+        html += f"<p style='color:#888;margin-top:20px;'>{labels['footer']}</p>"
 
         send_email(html, lang)
 
         return jsonify({
             "metrics": metrics,
             "analysis": summary,
-            "creative": creative_html,
+            "creative": creative,
             "footer": labels['footer']
         })
     except Exception as e:
