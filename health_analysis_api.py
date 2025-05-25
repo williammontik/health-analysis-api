@@ -1,4 +1,3 @@
-# === START OF WORKING health_analysis_api.py ===
 # -*- coding: utf-8 -*-
 import os, logging, smtplib
 from datetime import datetime
@@ -47,107 +46,35 @@ LANGUAGE_TEXTS = {
 PROMPTS = {
     "en": {
         "summary": lambda age, gender, country, concern, notes:
-            f"A {age}-year-old {gender} from {country} is experiencing '{concern}'. Description: {notes}. "
-            f"Write 4 paragraphs of advice in third-person. Avoid using 'you'.",
+            f"A {age}-year-old {gender} from {country} is experiencing '{concern}'. Description: {notes}. Write 4 paragraphs of advice in third-person. Avoid using 'you'.",
         "creative": lambda age, gender, country, concern, notes:
             f"As a health coach, give 10 practical suggestions for a {age}-year-old {gender} from {country} facing '{concern}'. Notes: {notes}."
     },
     "zh": {
         "summary": lambda age, gender, country, concern, notes:
-            f"一位{age}岁的{gender}来自{country}，主要健康问题是“{concern}”。补充说明：{notes}。"
-            f"请以第三人称的方式撰写4段建议内容，避免使用“你”，而是像对他人提出建议。",
+            f"一位{age}歲的{gender}來自{country}，主要健康問題是「{concern}」。補充說明：{notes}。請給出4段建議，避免使用「你」，更像是對他人提出的建議。",
         "creative": lambda age, gender, country, concern, notes:
-            f"请以健康顾问的身份，为{age}岁的{gender}来自{country}、健康问题为“{concern}”的人，提供10个实用健康建议。说明：{notes}"
+            f"請以健康教練的身份，為{country}一位{age}歲的{gender}，健康問題為「{concern}」，提出10個創意建議。說明如下：{notes}"
     },
     "tw": {
         "summary": lambda age, gender, country, concern, notes:
-            f"一位{age}歲的{gender}來自{country}，健康問題為「{concern}」。補充說明：{notes}。"
-            f"請撰寫4段建議，不使用「你」，要以第三人稱呈現。",
+            f"一名{age}歲的{gender}來自{country}，健康問題為「{concern}」，描述如下：{notes}。請撰寫4段建議，不要用「你」，要像是給其他人建議。",
         "creative": lambda age, gender, country, concern, notes:
-            f"請以健康顧問身份，為{age}歲的{gender}來自{country}、健康問題為「{concern}」的人提供10個生活建議。補充資訊：{notes}"
+            f"請以健康教練的身份，為{country}一位{age}歲的{gender}，健康問題為「{concern}」的人，提供10個創意建議。請根據這些描述：{notes}。"
     }
 }
 
-def compute_age(dob):
-    try:
-        dt = parser.parse(dob)
-        today = datetime.today()
-        return today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
-    except:
-        return 0
-
-def get_openai_response(prompt, temp=0.7):
-    try:
-        result = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=temp
-        )
-        return result.choices[0].message.content.strip()
-    except Exception as e:
-        logging.error(f"OpenAI error: {e}")
-        return "⚠️ 無法產生分析結果"
-
-@app.route("/health_analyze", methods=["POST"])
-def health_analyze():
-    try:
-        data = request.get_json(force=True)
-        lang = data.get("lang", "en").strip().lower()
-        if lang not in LANGUAGE:
-            lang = "en"
-
-        labels = LANGUAGE_TEXTS[lang]
-        content = LANGUAGE[lang]
-        prompts = PROMPTS[lang]
-
-        name = data.get("name")
-        dob = data.get("dob")
-        gender = data.get("gender")
-        height = data.get("height")
-        weight = data.get("weight")
-        country = data.get("country")
-        concern = data.get("condition")
-        notes = data.get("details", "") or "無補充說明"
-        ref = data.get("referrer")
-        angel = data.get("angel")
-        age = compute_age(dob)
-
-        summary_text = get_openai_response(prompts["summary"](age, gender, country, concern, notes))
-        creative_text = get_openai_response(prompts["creative"](age, gender, country, concern, notes), temp=0.9)
-
-        creative_html = "<br><h3 style='font-size:24px;'>💡 Creative Suggestions:</h3><br>" + \
-                        "".join(f"<p>{line.strip()}</p>" for line in creative_text.split("\n") if line.strip())
-
-        disclaimer_html = (
-            "<p style='margin-top:30px;color:#888;'>🛡️ Disclaimer:<br>"
-            "🩺 This platform offers general lifestyle suggestions. "
-            "Please consult a licensed medical professional for diagnosis or treatment decisions.</p>"
-        )
-
-        full_html = (
-            f"<h4 style='text-align:center;'>{content['report_title']}</h4>"
-            f"<p><strong>{labels['name']}:</strong> {name}<br>"
-            f"<strong>{labels['dob']}:</strong> {dob}<br><strong>{labels['country']}:</strong> {country}<br>"
-            f"<strong>{labels['gender']}:</strong> {gender}<br><strong>{labels['age']}:</strong> {age}<br>"
-            f"<strong>{labels['height']}:</strong> {height}<br><strong>{labels['weight']}:</strong> {weight}<br>"
-            f"<strong>{labels['concern']}:</strong> {concern}<br><strong>{labels['desc']}:</strong> {notes}<br>"
-            f"<strong>{labels['ref']}:</strong> {ref}<br><strong>{labels['angel']}:</strong> {angel}</p>"
-            f"<div style='white-space:pre-wrap;font-size:16px;'>{summary_text}</div>"
-            f"{creative_html}"
-            f"{disclaimer_html}"
-            f"<p style='margin-top:20px;color:#888;'>{labels['footer']}</p>"
-        )
-
-        send_email(full_html, lang)
-
-        return jsonify({
-            "analysis": summary_text,
-            "creative": creative_html,
-            "footer": labels['footer']
-        })
-    except Exception as e:
-        logging.error(f"Health analyze error: {e}")
-        return jsonify({"error": "Server error"}), 500
+chart_prompts = {
+    "en": lambda age, gender, country, concern, notes:
+        f"A {age}-year-old {gender} from {country} has the health issue '{concern}'. Notes: {notes}. "
+        f"Generate 3 health categories starting with ###, and under each, list 3 real indicators like 'Sleep Quality: 70%'. Use values from 25% to 90%, no repeats.",
+    "zh": lambda age, gender, country, concern, notes:
+        f"一位{age}歲的{gender}來自{country}，主要健康問題是「{concern}」。補充說明：{notes}。"
+        f"請列出3個以 ### 開頭的健康分類，每類包含3個真實的健康指標，格式為「指標名稱: 數值%」，範圍25%到90%，且數值不可重複。",
+    "tw": lambda age, gender, country, concern, notes:
+        f"{age}歲{gender}來自{country}，健康問題是「{concern}」，補充：{notes}。"
+        f"請設計3個以 ### 開頭的分類，每類下列3項具體指標，例如「睡眠品質: 78%」。數值請在25%-90%，不可重複。"
+}
 
 def send_email(html_body, lang):
     subject = LANGUAGE[lang]["email_subject"]
@@ -163,6 +90,122 @@ def send_email(html_body, lang):
     except Exception as e:
         logging.error(f"Email send error: {e}")
 
+def compute_age(dob):
+    try:
+        dt = parser.parse(dob)
+        today = datetime.today()
+        return today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
+    except:
+        return 0
+
+def generate_metrics_with_ai(prompt):
+    try:
+        res = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        lines = res.choices[0].message.content.strip().split("\n")
+        metrics = []
+        current_title, labels, values = "", [], []
+        for line in lines:
+            if line.strip().startswith("###"):
+                if current_title and labels and values:
+                    metrics.append({"title": current_title, "labels": labels, "values": values})
+                current_title = line.replace("###", "").strip()
+                labels, values = [], []
+            elif ":" in line:
+                try:
+                    label, val = line.split(":", 1)
+                    label = label.strip("-• ").strip()
+                    val = int(val.strip().replace("%", ""))
+                    labels.append(label)
+                    values.append(val)
+                except:
+                    continue
+        if current_title and labels and values:
+            metrics.append({"title": current_title, "labels": labels, "values": values})
+        return metrics or [{"title": "General Health", "labels": ["A", "B", "C"], "values": [60, 60, 60]}]
+    except Exception as e:
+        logging.error(f"Chart parse error: {e}")
+        return [{"title": "General Health", "labels": ["A", "B", "C"], "values": [60, 60, 60]}]
+
+@app.route("/health_analyze", methods=["POST"])
+def health_analyze():
+    try:
+        data = request.get_json(force=True)
+        lang = data.get("lang", "en").strip().lower()
+        if lang not in LANGUAGE:
+            lang = "en"
+
+        labels = LANGUAGE_TEXTS[lang]
+        content = LANGUAGE[lang]
+        prompts = PROMPTS[lang]
+        charts = chart_prompts[lang]
+
+        name = data.get("name")
+        dob = data.get("dob")
+        gender = data.get("gender")
+        height = data.get("height")
+        weight = data.get("weight")
+        country = data.get("country")
+        concern = data.get("condition")
+        notes = data.get("details", "") or "無補充說明"
+        ref = data.get("referrer")
+        angel = data.get("angel")
+        age = compute_age(dob)
+
+        metrics = generate_metrics_with_ai(charts(age, gender, country, concern, notes))
+        summary = get_openai_response(prompts["summary"](age, gender, country, concern, notes))
+        creative = get_openai_response(prompts["creative"](age, gender, country, concern, notes), temp=0.85)
+
+        html = f"<h4 style='text-align:center;'>{content['report_title']}</h4>"
+        html += f"<p><strong>{labels['name']}:</strong> {name}<br><strong>{labels['dob']}:</strong> {dob}<br>"
+        html += f"<strong>{labels['country']}:</strong> {country}<br><strong>{labels['gender']}:</strong> {gender}<br>"
+        html += f"<strong>{labels['age']}:</strong> {age}<br><strong>{labels['height']}:</strong> {height}<br>"
+        html += f"<strong>{labels['weight']}:</strong> {weight}<br><strong>{labels['concern']}:</strong> {concern}<br>"
+        html += f"<strong>{labels['desc']}:</strong> {notes}<br><strong>{labels['ref']}:</strong> {ref}<br>"
+        html += f"<strong>{labels['angel']}:</strong> {angel}</p>"
+
+        for m in metrics:
+            html += f"<strong>{m['title']}</strong><br>"
+            for label, val in zip(m['labels'], m['values']):
+                html += (
+                    f"<div style='display:flex;align-items:center;margin-bottom:8px;'>"
+                    f"<span style='width:180px;'>{label}</span>"
+                    f"<div style='flex:1;background:#eee;border-radius:5px;overflow:hidden;'>"
+                    f"<div style='width:{val}%;height:14px;background:#5E9CA0;'></div></div>"
+                    f"<span style='margin-left:10px;'>{val}%</span></div>"
+                )
+            html += "<br>"
+
+        creative_html = "<br><br><h3>💡</h3><br>" + "".join(f"<p>{line}</p>" for line in creative.split("\n") if line)
+        html += summary + creative_html + f"<p style='color:#888;'>{labels['footer']}</p>"
+
+        send_email(html, lang)
+
+        return jsonify({
+            "metrics": metrics,
+            "analysis": summary,
+            "creative": creative_html,
+            "footer": labels['footer']
+        })
+    except Exception as e:
+        logging.error(f"Health analyze error: {e}")
+        return jsonify({"error": "Server error"}), 500
+
+def get_openai_response(prompt, temp=0.7):
+    try:
+        result = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temp
+        )
+        return result.choices[0].message.content
+    except Exception as e:
+        logging.error(f"OpenAI error: {e}")
+        return "⚠️ 無法產生分析結果"
+
 if __name__ == "__main__":
     app.run(debug=True, port=int(os.getenv("PORT", 5000)), host="0.0.0.0")
-# === END OF WORKING health_analysis_api.py ===
+
