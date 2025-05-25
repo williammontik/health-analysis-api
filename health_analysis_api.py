@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 import os, logging, smtplib
 from datetime import datetime
@@ -24,7 +25,7 @@ LANGUAGE = {
         "report_title": "🎉 Global Identical Health Insights"
     },
     "zh": {
-        "email_subject": "您的健康洞察报告",
+        "email_subject": "您的健康洞察報告",
         "report_title": "🎉 全球健康洞察（简体）"
     },
     "tw": {
@@ -36,38 +37,42 @@ LANGUAGE = {
 PROMPTS = {
     "tw": {
         "summary": lambda age, gender, country, concern, notes:
-            f"一名{age}歲的{gender}來自{country}，健康問題為「{concern}」，描述如下：{notes}。請撰寫4段建議，不要用「你」，要像是給其他人建議。",
+            f"一位來自{country}、年齡與性別相近的人，正面對「{concern}」的健康狀況。補充說明：{notes}。"
+            f"請以第三人稱撰寫四段建議，不可使用「你」或提及任何名字。",
         "creative": lambda age, gender, country, concern, notes:
-            f"請以健康教練的身份，為{country}一位{age}歲的{gender}，健康問題為「{concern}」的人，提供10個創意建議。請根據這些描述：{notes}。"
+            f"請以健康教練的身份，為來自{country}、與此人年齡和性別相近的對象，健康問題為「{concern}」，"
+            f"提出10個創意建議。補充說明如下：{notes}。不要使用「你」這個詞。"
     },
     "zh": {
         "summary": lambda age, gender, country, concern, notes:
-            f"一位{age}歲的{gender}來自{country}，主要健康問題是「{concern}」。補充說明：{notes}。請給出4段建議，避免使用「你」，更像是對他人提出的建議。",
+            f"某位来自{country}、年龄与性别相近的人目前正面临“{concern}”这一健康问题。补充说明：{notes}。"
+            f"请用专业、第三人称的语气，提供四段建议，不使用“你”或提及具体姓名。",
         "creative": lambda age, gender, country, concern, notes:
-            f"請以健康教練的身份，為{country}一位{age}歲的{gender}，健康問題為「{concern}」，提出10個創意建議。說明如下：{notes}"
+            f"请以健康教练的身份，为{country}一位年龄与性别相似的人，当前面临“{concern}”的问题，"
+            f"提供10条创意建议。补充内容如下：{notes}。不使用“你”或任何人名。"
     },
     "en": {
         "summary": lambda age, gender, country, concern, notes:
-            f"A {age}-year-old {gender} from {country} is experiencing '{concern}'. Description: {notes}. Please write 4 pieces of advice in a professional, third-person tone (avoid using 'you').",
+            f"A person of similar age and gender in {country} is facing a health concern: '{concern}'. "
+            f"Description: {notes}. Please write 4 paragraphs of health advice in a professional, third-person tone. "
+            f"Do not use 'you' or refer to any specific names.",
         "creative": lambda age, gender, country, concern, notes:
-            f"As a health coach, provide 10 creative and practical suggestions for a {age}-year-old {gender} from {country} who is dealing with '{concern}'. Extra notes: {notes}."
+            f"As a health coach, provide 10 creative and practical suggestions for someone in {country} with similar age and gender, "
+            f"dealing with '{concern}'. Description: {notes}. Avoid using 'you' or any names."
     }
 }
 
 chart_prompts = {
-    "en": lambda age, gender, country, concern, notes:
-        f"A {age}-year-old {gender} from {country} is facing a health concern: '{concern}'. Additional notes: {notes}. "
-        f"Please create 3 chart categories that reflect this specific concern — for example, if the issue is diabetes, use themes like 'Blood Sugar Control', 'Diet Compliance', 'Physical Activity'. "
-        f"For each category, use a heading starting with ###. Under each, list 3 meaningful health indicators in the format 'Indicator: Value%'. "
-        f"Ensure values are varied (between 25% and 90%) and avoid using the same number repeatedly. Make sure categories and indicators are medically relevant.",
-
-    "zh": lambda age, gender, country, concern, notes:
-        f"一位{age}歲的{gender}來自{country}，主要健康問題是「{concern}」。補充說明：{notes}。請根據此問題產生3個與健康有關的圖表分類，例如如果是糖尿病，可以用「血糖控制」、「飲食管理」、「運動習慣」。"
-        f"每個分類請用 ### 作為開頭，然後列出3個具體指標，格式為「指標: 數值%」。請確保數值介於25%到90%之間，避免使用相同數字，並使每個指標和分類與此健康問題緊密相關。",
-
     "tw": lambda age, gender, country, concern, notes:
-        f"這位{age}歲的{gender}來自{country}，目前的健康困擾是「{concern}」。補充說明如下：{notes}。請根據此健康問題設計3個對應的圖表分類，例如若問題為高血壓，可使用「血壓監控」、「飲食習慣」、「壓力管理」。"
-        f"每個分類請以 ### 開頭，底下列出3項相關健康指標，格式為「指標: 數值%」。請確保每個數值在25%到90%之間，且不要重複同樣的數字。所有內容需貼近實際健康情境。"
+        f"請為{country}一位{age}歲的{gender}產生健康圖表資料，主要問題是「{concern}」，補充說明為：{notes}。"
+        f"請用 ### 開頭的標題分為3類，並為每類列出3項指標，格式為「指標: 數值%」。",
+    "zh": lambda age, gender, country, concern, notes:
+        f"請針對{country}的{age}歲{gender}，針對「{concern}」的健康問題產生圖表資料，補充內容為：{notes}。"
+        f"分為3大類，開頭用 ###，每類含3項指標，格式為「指標: 數值%」。",
+    "en": lambda age, gender, country, concern, notes:
+        f"Generate health metric data for a {age}-year-old {gender} from {country}, whose main concern is '{concern}'. "
+        f"Additional notes: {notes}. Please divide the output into 3 categories using headings starting with ###, "
+        f"and under each, list 3 indicators using the format 'Indicator: Value%'."
 }
 
 def send_email(html_body, lang):
@@ -133,7 +138,9 @@ def generate_metrics_with_ai(prompt_text):
     except Exception as e:
         logging.warning(f"GPT metric error: {e}")
         return [
-            {"title": "General Health", "labels": ["Indicator A", "Indicator B", "Indicator C"], "values": [60, 60, 60]}
+            {"title": "Cognitive Health", "labels": ["Memory", "Focus", "Reaction"], "values": [65, 70, 60]},
+            {"title": "Emotional Health", "labels": ["Mood", "Stress", "Energy"], "values": [68, 55, 62]},
+            {"title": "Physical Fitness", "labels": ["Balance", "Strength", "Coordination"], "values": [60, 70, 58]}
         ]
 
 def get_openai_response(prompt, temp=0.7):
@@ -146,19 +153,14 @@ def get_openai_response(prompt, temp=0.7):
         return result.choices[0].message.content
     except Exception as e:
         app.logger.error(f"OpenAI error: {e}")
-        return "⚠️ 無法生成內容。"
+        return "⚠️ Unable to generate content."
 
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
     try:
         data = request.get_json(force=True)
         lang = data.get("lang", "en").strip()
-        if lang not in LANGUAGE:
-            lang = "tw"  # fallback to Traditional Chinese
-
-        content = LANGUAGE[lang]
-        prompts = PROMPTS[lang]
-        charts = chart_prompts[lang]
+        content = LANGUAGE.get(lang, LANGUAGE["en"])
 
         name     = data.get("name")
         dob      = data.get("dob")
@@ -166,17 +168,19 @@ def health_analyze():
         height   = data.get("height")
         weight   = data.get("weight")
         country  = data.get("country")
-        concern  = data.get("condition")
-        notes    = data.get("details", "") or "沒有提供補充說明。"
+        condition = data.get("condition")
+        notes    = data.get("details", "") or "No additional description provided."
         ref      = data.get("referrer")
         angel    = data.get("angel")
         age      = compute_age(dob)
 
-        metrics_prompt = charts(age, gender, country, concern, notes)
+        concern = notes if condition == "Other" and notes.strip() else condition
+
+        metrics_prompt = chart_prompts.get(lang, chart_prompts["en"])(age, gender, country, concern, notes)
         metrics = generate_metrics_with_ai(metrics_prompt)
 
-        summary_prompt = prompts["summary"](age, gender, country, concern, notes)
-        creative_prompt = prompts["creative"](age, gender, country, concern, notes)
+        summary_prompt = PROMPTS.get(lang, PROMPTS["en"])["summary"](age, gender, country, concern, notes)
+        creative_prompt = PROMPTS.get(lang, PROMPTS["en"])["creative"](age, gender, country, concern, notes)
 
         summary = get_openai_response(summary_prompt)
         creative = get_openai_response(creative_prompt, temp=0.85)
@@ -195,7 +199,7 @@ def health_analyze():
             chart_html += "<br>"
 
         creative_html = (
-            "<br><br><h3 style='font-size:24px; font-weight:bold;'>💡</h3><br>"
+            "<br><br><h3 style='font-size:24px; font-weight:bold;'>💡 Creative Health Suggestions</h3><br>"
         )
         creative_html += "".join(
             f"<p style='margin-bottom:14px;'>{line.strip()}</p>"
@@ -204,16 +208,17 @@ def health_analyze():
         creative_html += "<br>"
 
         footer = (
-            "<p style='color:#888;'>📩 本報告已通過電子郵件發送。所有內容由 KataChat AI 系統生成，符合 PDPA 標準。</p>"
+            "<p style='color:#888;'>📩 This platform offers general lifestyle suggestions. "
+            "Please consult a licensed medical professional for diagnosis or treatment decisions.</p>"
         )
 
         html = (
             f"<h4 style='text-align:center; font-size:24px;'>{content['report_title']}</h4>"
-            f"<p><strong>法定姓名:</strong> {name}<br><strong>出生日期:</strong> {dob}<br>"
-            f"<strong>國家:</strong> {country}<br><strong>性別:</strong> {gender}<br><strong>年齡:</strong> {age}<br>"
-            f"<strong>身高:</strong> {height} cm<br><strong>體重:</strong> {weight} kg<br>"
-            f"<strong>主要問題:</strong> {concern}<br><strong>簡要說明:</strong> {notes}<br>"
-            f"<strong>推薦人:</strong> {ref}<br><strong>關心我的人:</strong> {angel}</p>"
+            f"<p><strong>Given Legal Name:</strong> {name}<br><strong>Date of Birth:</strong> {dob}<br>"
+            f"<strong>Country:</strong> {country}<br><strong>Gender:</strong> {gender}<br><strong>Age:</strong> {age}<br>"
+            f"<strong>Height:</strong> {height} cm<br><strong>Weight:</strong> {weight} kg<br>"
+            f"<strong>Main Concern:</strong> {concern}<br><strong>Brief Description:</strong> {notes}<br>"
+            f"<strong>Referrer:</strong> {ref}<br><strong>Caring Person:</strong> {angel}</p>"
             f"{chart_html}"
             f"<div>{summary}</div>"
             f"{creative_html}"
