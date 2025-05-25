@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 import os, logging, smtplib
 from datetime import datetime
@@ -21,39 +20,38 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
 LANGUAGE = {
     "en": {"email_subject": "Your Health Insight Report", "report_title": "🎉 Global Health Insights"},
-    "zh": {"email_subject": "您的健康洞察报告", "report_title": "🎉 全球健康洞察"},
-    "tw": {"email_subject": "您的健康洞察報告", "report_title": "🎉 全球健康洞察"}
+    "zh": {"email_subject": "您的健康深度抽象", "report_title": "🎉 全球健康深度抽象"},
+    "tw": {"email_subject": "您的健康深度揭示", "report_title": "🎉 全球健康深度揭示"}
 }
 
 PROMPTS = {
     "en": {
         "summary": lambda age, gender, country, concern, notes:
-            f"{age}-year-old {gender} from {country} is facing '{concern}'. Additional details: {notes}.
-"
-            f"Please write 4 factual and relevant insights in paragraph form using third person tone (avoid 'you').
-"
+            f"🧠 Summary:\n{age}-year-old {gender} from {country} is facing '{concern}'. Additional details: {notes}.\n"
+            f"Please write 4 factual and relevant insights in paragraph form using third person tone (avoid 'you').\n"
             f"Use global statistics, regional trends and clear outcomes if possible.",
+
         "creative": lambda age, gender, country, concern, notes:
-            f"Please suggest 10 creative health habits for a {age}-year-old {gender} from {country} with '{concern}'. "
+            f"💡 Creative Suggestions:\nPlease suggest 10 creative health habits for a {age}-year-old {gender} from {country} with '{concern}'. "
             f"Include emojis and brief explanations (e.g., '🥗 Eat broccoli — reduces inflammation'). Keep each idea short and focused on lifestyle."
     },
     "zh": {
         "summary": lambda age, gender, country, concern, notes:
-            f"一位{age}岁的{gender}来自{country}，主要健康问题为“{concern}”。补充说明：{notes}。
-"
-            f"请以第三人称的方式撰写4段简洁明了的分析内容，引用全球趋势或相关统计，避免使用“你”。",
+            f"🧠 总结：\n一位{age}岁的{gender}来自{country}，主要健康问题为“{concern}”。补充说明：{notes}。\n"
+            f"请以第三人称的方式编写4段简洁明了的分析内容，引用全球趋势或相关统计，避免使用“你”。",
+
         "creative": lambda age, gender, country, concern, notes:
-            f"请列出10个简洁有趣的健康生活习惯建议，适用于{country}一位{age}岁的{gender}，健康问题为“{concern}”。"
-            f"每项建议加上Emoji和简短说明（例如：🥗 吃西兰花——有助于减缓炎症）。"
+            f"💡 创意建议：\n请列出10个简洁有趣的健康生活习惯建议，适用于{country}一位{age}岁的{gender}，健康问题为“{concern}”。"
+            f"每项建议加上Emoji和简短说明（例如：🥗 吃西兰花－－有助于减缓炎症）。"
     },
     "tw": {
         "summary": lambda age, gender, country, concern, notes:
-            f"這位{age}歲的{gender}來自{country}，健康困擾為「{concern}」。補充說明：{notes}。
-"
-            f"請用第三人稱撰寫4段分析建議，包含真實資訊、趨勢與建議（請避免使用「你」）。",
+            f"🧠 摘要：\n這位{age}歲的{gender}來自{country}，健康困擾為「{concern}」。補充說明：{notes}。\n"
+            f"請用第三人稱編寫4段分析建議，包含真實資訊、趨勢與建議（請避免使用「你」）。",
+
         "creative": lambda age, gender, country, concern, notes:
-            f"請提出10項實用、生活化的健康改善建議，適用於{country}一位{age}歲的{gender}，主要問題為「{concern}」。"
-            f"每項建議使用emoji和簡潔說明（例如：🍅 吃番茄——有助於攝取茄紅素）。"
+            f"💡 創意建議：\n請提出10項實用、生活化的健康改善建議，適用於{country}一位{age}歲的{gender}，主要問題為「{concern}」。"
+            f"每項建議使用emoji和簡潔說明（例如：🍕 吃番茄－－有助於攞取茶紅素）。"
     }
 }
 
@@ -106,32 +104,13 @@ def health_analyze():
         weight = data.get("weight")
         country = data.get("country")
         concern = data.get("condition")
-        notes = data.get("details", "") or "無補充說明"
+        notes = data.get("details", "") or "無补充說明"
         ref = data.get("referrer")
         angel = data.get("angel")
         age = compute_age(dob)
 
         summary_text = get_openai_response(PROMPTS[lang]["summary"](age, gender, country, concern, notes))
         creative_text = get_openai_response(PROMPTS[lang]["creative"](age, gender, country, concern, notes), temp=0.9)
-
-        # Format creative suggestions with title and spacing
-        formatted_creative = (
-            "<h3 style='font-size:24px;'>💡 Creative Suggestions:</h3><br>" +
-            "".join(f"<p style='margin-bottom:10px;'>{line.strip()}</p>" for line in creative_text.split("\n") if line.strip())
-        )
-
-        # Format summary as paragraphs
-        formatted_summary = (
-            "<div style='font-size:16px; white-space:pre-wrap;'><strong>🧠 Summary:</strong><br><p style='margin-bottom:10px;'>"
-            + "</p><p style='margin-bottom:10px;'>".join(summary_text.split("\n")) + "</p></div>"
-        )
-
-        # Disclaimers by language
-        disclaimers = {
-            "en": "🛡️ Disclaimer:<br>🩺 This platform offers general lifestyle suggestions. Please consult a licensed medical professional for diagnosis or treatment decisions.",
-            "zh": "🛡️ 免责声明：<br>🩺 本平台提供一般健康建议，如有需要请咨询专业医生。",
-            "tw": "🛡️ 免責聲明：<br>🩺 本平台提供一般健康建議，如有需要請諮詢專業醫生。"
-        }
 
         html = (
             f"<h4 style='text-align:center;font-size:24px;'>{LANGUAGE[lang]['report_title']}</h4><br>"
@@ -146,16 +125,18 @@ def health_analyze():
             f"<strong>📝 Notes:</strong> {notes}<br>"
             f"<strong>💬 Referrer:</strong> {ref}<br>"
             f"<strong>👼 Angel:</strong> {angel}<br><br>"
-            f"{formatted_summary}<br>{formatted_creative}<br>"
-            f"<p style='color:#888;'>{disclaimers[lang]}</p>"
+            f"<div style='white-space:pre-wrap; font-size:16px;'>{summary_text}</div><br>"
+            f"<div style='white-space:pre-wrap; font-size:16px;'><h4 style='font-size:24px;'>💡 Creative Suggestions:</h4>"
+            f"<div style='margin-top:10px;'>{creative_text.replace('\n', '<br><br>')}</div></div><br>"
+            f"<p style='color:#888;'>🛡️ Disclaimer:<br>🧪 This platform offers general lifestyle suggestions. Please consult a licensed medical professional for diagnosis or treatment decisions.</p>"
         )
 
         send_email(html, lang)
 
         return jsonify({
-            "analysis": formatted_summary,
-            "creative": formatted_creative,
-            "footer": f"<p style='color:#888;'>{disclaimers[lang]}</p>"
+            "analysis": summary_text,
+            "creative": f"\n\n{creative_text}",
+            "footer": "🧪 This report is for general informational purposes only. Please consult a medical professional."
         })
 
     except Exception as e:
