@@ -147,7 +147,8 @@ def health_analyze():
         data = request.get_json(force=True)
         lang = data.get("lang", "en").strip()
         if lang not in LANGUAGE:
-            lang = "tw"
+            lang = "en"
+        app.logger.info(f"📥 Language received from frontend: {lang}")
 
         labels = LANGUAGE_TEXTS[lang]
         content = LANGUAGE[lang]
