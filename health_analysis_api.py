@@ -90,4 +90,54 @@ def build_messages(lang, user_prompt):
         {"role": "user", "content": user_prompt}
     ]
 
-# (Truncated to preserve space - full code was inserted here earlier)
+# ✅ Patch OpenAI call functions to use language control
+
+def get_openai_response(prompt, lang, temp=0.7):
+    try:
+        result = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=build_messages(lang, prompt),
+            temperature=temp
+        )
+        return result.choices[0].message.content
+    except Exception as e:
+        app.logger.error(f"OpenAI error: {e}")
+        return "⚠️ Unable to generate content."
+
+def generate_metrics_with_ai(prompt_text, lang):
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=build_messages(lang, prompt_text),
+            temperature=0.7
+        )
+        lines = response.choices[0].message.content.strip().split("\n")
+        metrics = []
+        current_title = ""
+        labels = []
+        values = []
+        for line in lines:
+            if line.startswith("###"):
+                if current_title and labels and values:
+                    metrics.append({
+                        "title": current_title,
+                        "labels": labels,
+                        "values": values
+                    })
+                current_title = line[3:].strip()
+                labels, values = [], []
+            elif ":" in line:
+                label, val = line.split(":", 1)
+                labels.append(label.strip())
+                try:
+                    values.append(int(val.strip().replace("%", "")))
+                except:
+                    values.append(50)
+        if current_title and labels and values:
+            metrics.append({"title": current_title, "labels": labels, "values": values})
+        if not metrics:
+            raise ValueError("GPT returned no metrics.")
+        return metrics
+    except Exception as e:
+        logging.warning(f"GPT metric error: {e}")
+        return []  # or fallback values
