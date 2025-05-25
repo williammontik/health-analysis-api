@@ -20,7 +20,7 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
 LANGUAGE = {
     "en": {"email_subject": "Your Health Insight Report", "report_title": "🎉 Global Identical Health Insights"},
-    "zh": {"email_subject": "您的健康洞察报告", "report_title": "🎉 全球健康洞察"},
+    "zh": {"email_subject": "您的健康洞察报告", "report_title": "🎉 全球健康洞察（简体）"},
     "tw": {"email_subject": "您的健康洞察報告", "report_title": "🎉 全球健康洞察（繁體）"}
 }
 
