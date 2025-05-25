@@ -111,6 +111,39 @@ def get_openai_response(prompt, temp=0.7):
         logging.error(f"OpenAI error: {e}")
         return "⚠️ 无法产生分析结果"
 
+
+def generate_metrics_with_ai(prompt):
+    try:
+        res = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        lines = res.choices[0].message.content.strip().split("\n")
+        metrics = []
+        current_title, labels, values = "", [], []
+        for line in lines:
+            if line.strip().startswith("###"):
+                if current_title and labels and values:
+                    metrics.append({"title": current_title, "labels": labels, "values": values})
+                current_title = line.replace("###", "").strip()
+                labels, values = [], []
+            elif ":" in line:
+                try:
+                    label, val = line.split(":", 1)
+                    label = label.strip("-• ").strip()
+                    val = int(val.strip().replace("%", ""))
+                    labels.append(label)
+                    values.append(val)
+                except:
+                    continue
+        if current_title and labels and values:
+            metrics.append({"title": current_title, "labels": labels, "values": values})
+        return metrics or [{"title": "General Health", "labels": ["A", "B", "C"], "values": [60, 60, 60]}]
+    except Exception as e:
+        logging.error(f"Chart parse error: {e}")
+        return [{"title": "General Health", "labels": ["A", "B", "C"], "values": [60, 60, 60]}]
+
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
     try:
