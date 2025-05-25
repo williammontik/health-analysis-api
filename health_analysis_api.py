@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 import os, logging, smtplib
 from datetime import datetime
@@ -98,37 +99,17 @@ def compute_age(dob):
     except:
         return 0
 
-def generate_metrics_with_ai(prompt):
+def get_openai_response(prompt, temp=0.7):
     try:
-        res = client.chat.completions.create(
+        result = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
+            temperature=temp
         )
-        lines = res.choices[0].message.content.strip().split("\n")
-        metrics = []
-        current_title, labels, values = "", [], []
-        for line in lines:
-            if line.strip().startswith("###"):
-                if current_title and labels and values:
-                    metrics.append({"title": current_title, "labels": labels, "values": values})
-                current_title = line.replace("###", "").strip()
-                labels, values = [], []
-            elif ":" in line:
-                try:
-                    label, val = line.split(":", 1)
-                    label = label.strip("-• ").strip()
-                    val = int(val.strip().replace("%", ""))
-                    labels.append(label)
-                    values.append(val)
-                except:
-                    continue
-        if current_title and labels and values:
-            metrics.append({"title": current_title, "labels": labels, "values": values})
-        return metrics or [{"title": "General Health", "labels": ["A", "B", "C"], "values": [60, 60, 60]}]
+        return result.choices[0].message.content
     except Exception as e:
-        logging.error(f"Chart parse error: {e}")
-        return [{"title": "General Health", "labels": ["A", "B", "C"], "values": [60, 60, 60]}]
+        logging.error(f"OpenAI error: {e}")
+        return "⚠️ 无法产生分析结果"
 
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
@@ -179,7 +160,6 @@ def health_analyze():
                 )
             html += "<br>"
 
-        # ✨ Final Report Sections (Localized)
         summary_title = {"en": "🧠 Summary:", "zh": "🧠 总结：", "tw": "🧠 摘要："}.get(lang, "🧠 Summary:")
         suggestion_title = {"en": "💡 Creative Suggestions:", "zh": "💡 创意建议：", "tw": "💡 創意建議："}
         disclaimer_title = {"en": "🛡️ Disclaimer:", "zh": "🛡️ 免责声明：", "tw": "🛡️ 免責聲明："}
@@ -189,15 +169,16 @@ def health_analyze():
             "tw": "🩺 本平台僅提供一般生活建議，如有需要，請諮詢專業醫生以獲取診斷或治療建議。"
         }
 
-        html += f"<br><h3 style='font-size:22px;'>{summary_title}</h3>"
+        html += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>{summary_title}</div><br>"
         for para in summary.split("\n"):
             if para.strip():
-                html += f"<p style='line-height:1.7;'>{para.strip()}</p>"
+                html += f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{para.strip()}</p>"
 
-        html += f"<br><h3 style='font-size:24px;'>{suggestion_title.get(lang)}</h3><br>"
+        html += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>{suggestion_title.get(lang)}</div><br>"
         for line in creative.split("\n"):
-            if line.strip():
-                html += f"<p style='margin:12px 0;font-size:17px;'>{line.strip()}</p>"
+            line = line.strip()
+            if line:
+                html += f"<p style='margin:16px 0; font-size:17px;'>{line}</p>"
 
         html += (
             f"<br><br><p style='font-size:16px;'><strong>{disclaimer_title.get(lang)}</strong></p>"
@@ -218,17 +199,3 @@ def health_analyze():
         logging.error(f"Health analyze error: {e}")
         return jsonify({"error": "Server error"}), 500
 
-def get_openai_response(prompt, temp=0.7):
-    try:
-        result = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=temp
-        )
-        return result.choices[0].message.content
-    except Exception as e:
-        logging.error(f"OpenAI error: {e}")
-        return "⚠️ 无法产生分析结果"
-
-if __name__ == "__main__":
-    app.run(debug=True, port=int(os.getenv("PORT", 5000)), host="0.0.0.0")
