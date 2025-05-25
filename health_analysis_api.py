@@ -20,7 +20,7 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
 LANGUAGE = {
     "en": {"email_subject": "Your Health Insight Report", "report_title": "🎉 Global Identical Health Insights"},
-    "zh": {"email_subject": "您的健康洞察报告", "report_title": "🎉 全球健康洞察（简体）"},
+    "zh": {"email_subject": "您的健康洞察报告", "report_title": "🎉 全球健康洞察"},
     "tw": {"email_subject": "您的健康洞察報告", "report_title": "🎉 全球健康洞察（繁體）"}
 }
 
@@ -52,9 +52,9 @@ PROMPTS = {
     },
     "zh": {
         "summary": lambda age, gender, country, concern, notes:
-            f"一位{age}歲的{gender}來自{country}，主要健康問題是「{concern}」。補充說明：{notes}。請給出4段建議，避免使用「你」，更像是對他人提出的建議。",
+            f"一位{age}岁的{gender}来自{country}，主要健康问题是「{concern}」。补充说明：{notes}。请给出4段建议，避免使用「你」，更像是对他人提出的建议。",
         "creative": lambda age, gender, country, concern, notes:
-            f"請以健康教練的身份，為{country}一位{age}歲的{gender}，健康問題為「{concern}」，提出10個創意建議。說明如下：{notes}"
+            f"请以健康教练的身份，为{country}一位{age}岁的{gender}，健康问题为「{concern}」，提出10个创意建议。说明如下：{notes}"
     },
     "tw": {
         "summary": lambda age, gender, country, concern, notes:
@@ -69,8 +69,8 @@ chart_prompts = {
         f"A {age}-year-old {gender} from {country} has the health issue '{concern}'. Notes: {notes}. "
         f"Generate 3 health categories starting with ###, and under each, list 3 real indicators like 'Sleep Quality: 70%'. Use values from 25% to 90%, no repeats.",
     "zh": lambda age, gender, country, concern, notes:
-        f"一位{age}歲的{gender}來自{country}，主要健康問題是「{concern}」。補充說明：{notes}。"
-        f"請列出3個以 ### 開頭的健康分類，每類包含3個真實的健康指標，格式為「指標名稱: 數值%」，範圍25%到90%，且數值不可重複。",
+        f"一位{age}岁的{gender}来自{country}，主要健康问题是「{concern}」。补充说明：{notes}。"
+        f"请列出3个以 ### 开头的健康分类，每类包含3个真实的健康指标，格式为「指标名称: 数值%」，范围25%到90%，且数值不可重复。",
     "tw": lambda age, gender, country, concern, notes:
         f"{age}歲{gender}來自{country}，健康問題是「{concern}」，補充：{notes}。"
         f"請設計3個以 ### 開頭的分類，每類下列3項具體指標，例如「睡眠品質: 78%」。數值請在25%-90%，不可重複。"
@@ -150,7 +150,7 @@ def health_analyze():
         weight = data.get("weight")
         country = data.get("country")
         concern = data.get("condition")
-        notes = data.get("details", "") or "無補充說明"
+        notes = data.get("details", "") or "无补充说明"
         ref = data.get("referrer")
         angel = data.get("angel")
         age = compute_age(dob)
@@ -204,8 +204,7 @@ def get_openai_response(prompt, temp=0.7):
         return result.choices[0].message.content
     except Exception as e:
         logging.error(f"OpenAI error: {e}")
-        return "⚠️ 無法產生分析結果"
+        return "⚠️ 无法产生分析结果"
 
 if __name__ == "__main__":
     app.run(debug=True, port=int(os.getenv("PORT", 5000)), host="0.0.0.0")
-
