@@ -66,12 +66,23 @@ PROMPTS = {
 
 chart_prompts = {
     "en": lambda age, gender, country, concern, notes:
-        f"A {age}-year-old {gender} from {country} with a concern of '{concern}'. Notes: {notes}. Create 3 health categories with headings using ###. Under each, list 3 indicators in format 'Indicator: Value%'. Use contrasting values between 25% and 90%.",
+        f"A {age}-year-old {gender} from {country} is facing a health concern: '{concern}'. Additional notes: {notes}. "
+        f"Please create 3 chart categories that reflect this specific concern — for example, if the issue is diabetes, use themes like 'Blood Sugar Control', 'Diet Compliance', 'Physical Activity'. "
+        f"For each category, use a heading starting with ###. Under each, list 3 meaningful health indicators in the format 'Indicator: Value%'. "
+        f"Ensure that values are varied (between 25% and 90%) and avoid using the same number repeatedly. Make sure categories and indicators are medically relevant.",
+
     "zh": lambda age, gender, country, concern, notes:
-        f"{age}歲{gender}來自{country}，主要問題是「{concern}」，補充說明：{notes}。請用 ### 開頭列出3個健康分類，每類列出3項指標，格式「指標: 數值%」，範圍25%-90%。",
+        f"一位{age}歲的{gender}來自{country}，主要健康問題是「{concern}」。補充說明：{notes}。請根據此問題產生3個與健康有關的圖表分類，例如如果是糖尿病，可以用「血糖控制」、「飲食管理」、「運動習慣」。"
+        f"每個分類請用 ### 作為開頭，然後列出3個具體指標，格式為「指標: 數值%」。"
+        f"請確保數值介於25%到90%之間，避免使用相同數字，並使每個指標和分類與此健康問題緊密相關。",
+
     "tw": lambda age, gender, country, concern, notes:
-        f"{age}歲{gender}來自{country}，健康問題為「{concern}」，補充說明：{notes}。請用 ### 開頭的標題分3類，每類列出3項指標，格式為「指標: 數值%」，數值介於25%至90%。"
+        f"這位{age}歲的{gender}來自{country}，目前的健康困擾是「{concern}」。補充說明如下：{notes}。"
+        f"請根據此健康問題設計3個對應的圖表分類，例如若問題為高血壓，可使用「血壓監控」、「飲食習慣」、「壓力管理」。"
+        f"每個分類請以 ### 開頭，底下列出3項相關健康指標，格式為「指標: 數值%」。"
+        f"請確保每個數值在25%到90%之間，且不要重複同樣的數字。所有內容需貼近實際健康情境。"
 }
+
 
 def send_email(html_body, lang):
     subject = LANGUAGE.get(lang, LANGUAGE["en"])["email_subject"]
@@ -87,6 +98,7 @@ def send_email(html_body, lang):
     except Exception as e:
         app.logger.error(f"Email send error: {e}")
 
+
 def compute_age(dob):
     try:
         dt = parser.parse(dob)
@@ -94,6 +106,7 @@ def compute_age(dob):
         return today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
     except:
         return 0
+
 
 def generate_metrics_with_ai(prompt_text):
     try:
@@ -129,6 +142,7 @@ def generate_metrics_with_ai(prompt_text):
         logging.warning(f"GPT metric error: {e}")
         return [{"title": "General Health", "labels": ["A", "B", "C"], "values": [60, 60, 60]}]
 
+
 def get_openai_response(prompt, temp=0.7):
     try:
         result = client.chat.completions.create(
@@ -140,6 +154,7 @@ def get_openai_response(prompt, temp=0.7):
     except Exception as e:
         app.logger.error(f"OpenAI error: {e}")
         return "⚠️ 無法生成內容。"
+
 
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
@@ -221,6 +236,7 @@ def health_analyze():
     except Exception as e:
         app.logger.error(f"Health analyze error: {e}")
         return jsonify({"error": "Server error"}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=int(os.getenv("PORT", 5000)), host="0.0.0.0")
