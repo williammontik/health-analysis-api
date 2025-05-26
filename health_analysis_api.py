@@ -147,10 +147,13 @@ def health_analyze():
         age = compute_age(dob)
 
         metrics = generate_metrics_with_ai(charts(age, gender, country, concern, notes))
-        summary = get_openai_response(prompts["summary"](age, gender, country, concern, notes))
+
+        # 🧽 Strip any duplicated 🎉 header from AI output
+        raw_summary = get_openai_response(prompts["summary"](age, gender, country, concern, notes))
+        summary = raw_summary.replace(content['report_title'], '').strip()
+
         creative = get_openai_response(prompts["creative"](age, gender, country, concern, notes), temp=0.85)
 
-        # ✅ Build chart section for email only
         chart_html = ""
         for m in metrics:
             chart_html += f"<strong>{m['title']}</strong><br>"
@@ -164,7 +167,6 @@ def health_analyze():
                 )
             chart_html += "<br>"
 
-        # ✅ Full email version with charts
         email_html = f"<h4 style='text-align:center;'>{content['report_title']}</h4>"
         email_html += chart_html
         email_html += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
@@ -178,7 +180,6 @@ def health_analyze():
         )
         email_html += f"<p style='color:#888;margin-top:20px;'>{labels['footer']}</p>"
 
-        # ✅ Frontend version — charts excluded
         html_result = f"<h4 style='text-align:center;'>{content['report_title']}</h4>"
         html_result += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
         html_result += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary.split("\n") if p.strip()])
