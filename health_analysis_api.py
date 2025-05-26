@@ -133,7 +133,8 @@ def health_analyze():
 
         html += (
             f"<br><br><p style='font-size:16px;'><strong>🛡️ Disclaimer:</strong></p>"
-            f"<p style='font-size:15px; line-height:1.6;'>🩺 This platform offers general lifestyle suggestions. Please consult a licensed medical professional for diagnosis or treatment decisions.</p>"
+            f"<p style='font-size:15px; line-height:1.6;'>🩺 This platform offers general lifestyle suggestions. "
+            f"Please consult a licensed medical professional for diagnosis or treatment decisions.</p>"
         )
 
         html += f"<p style='color:#888; margin-top:20px;'>{labels['footer']}</p>"
@@ -143,7 +144,8 @@ def health_analyze():
         return jsonify({
             "summary": summary,
             "creative": creative,
-            "footer": labels['footer']
+            "footer": labels['footer'],
+            "html_result": html  # ✅ For front-end display!
         })
     except Exception as e:
         logging.error(f"Health analyze error: {e}")
