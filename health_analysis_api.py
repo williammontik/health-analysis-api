@@ -1,4 +1,3 @@
-
 # -*- coding: utf-8 -*-
 import os, logging, smtplib
 from datetime import datetime
@@ -47,49 +46,32 @@ LANGUAGE_TEXTS = {
 PROMPTS = {
     "en": {
         "summary": lambda age, gender, country, concern, notes:
-            f"A {age}-year-old {gender} from {country} is experiencing '{concern}'. Description: {notes}. Write 4 paragraphs of advice in third-person. Avoid using 'you'.",
+            f"A {age}-year-old {gender} from {country} is experiencing '{concern}'. Description: {notes}. Write 4 paragraphs of advice in third-person. Avoid using 'you'. Use real statistics or realistic language.",
         "creative": lambda age, gender, country, concern, notes:
-            f"As a health coach, give 10 practical suggestions for a {age}-year-old {gender} from {country} facing '{concern}'. Notes: {notes}."
+            f"As a health coach, give 10 practical suggestions for a {age}-year-old {gender} from {country} facing '{concern}'. Notes: {notes}. Each suggestion should start with an emoji."
     },
     "zh": {
         "summary": lambda age, gender, country, concern, notes:
-            f"一位{age}岁的{gender}来自{country}，主要健康问题是「{concern}」。补充说明：{notes}。请给出4段建议，避免使用「你」，更像是对他人提出的建议。",
+            f"一位{age}岁的{gender}来自{country}，主要健康问题是「{concern}」。补充说明：{notes}。请给出4段建议，避免使用「你」，更像是对他人提出的建议，并使用真实数据或常见现象。",
         "creative": lambda age, gender, country, concern, notes:
-            f"请以健康教练的身份，为{country}一位{age}岁的{gender}，健康问题为「{concern}」，提出10个创意建议。说明如下：{notes}"
+            f"请以健康教练的身份，为{country}一位{age}岁的{gender}，健康问题为「{concern}」，提出10个创意建议，每个建议以表情符号开头。说明如下：{notes}"
     },
     "tw": {
         "summary": lambda age, gender, country, concern, notes:
-            f"一名{age}歲的{gender}來自{country}，健康問題為「{concern}」，描述如下：{notes}。請撰寫4段建議，不要用「你」，要像是給其他人建議。",
+            f"一名{age}歲的{gender}來自{country}，健康問題為「{concern}」，描述如下：{notes}。請撰寫4段建議，不要用「你」，要像是給其他人建議，可加入常見比例或統計語氣。",
         "creative": lambda age, gender, country, concern, notes:
-            f"請以健康教練的身份，為{country}一位{age}歲的{gender}，健康問題為「{concern}」的人，提供10個創意建議。請根據這些描述：{notes}。"
+            f"請以健康教練的身份，為{country}一位{age}歲的{gender}，健康問題為「{concern}」的人，提供10個創意建議。每項建議以表情符號開頭。描述如下：{notes}。"
     }
 }
 
 chart_prompts = {
     "en": lambda age, gender, country, concern, notes:
-        f"A {age}-year-old {gender} from {country} has the health issue '{concern}'. Notes: {notes}. "
-        f"Generate 3 health categories starting with ###, and under each, list 3 real indicators like 'Sleep Quality: 70%'. Use values from 25% to 90%, no repeats.",
+        f"A {age}-year-old {gender} from {country} has the health issue '{concern}'. Notes: {notes}. Generate 3 health categories starting with ###, and under each, list 3 real indicators like 'Sleep Quality: 70%'. Use values from 25% to 90%, no repeats.",
     "zh": lambda age, gender, country, concern, notes:
-        f"一位{age}岁的{gender}来自{country}，主要健康问题是「{concern}」。补充说明：{notes}。"
-        f"请列出3个以 ### 开头的健康分类，每类包含3个真实的健康指标，格式为「指标名称: 数值%」，范围25%到90%，且数值不可重复。",
+        f"一位{age}岁的{gender}来自{country}，主要健康问题是「{concern}」。补充说明：{notes}。请列出3个以 ### 开头的健康分类，每类包含3个真实的健康指标，格式为「指标名称: 数值%」，范围25%到90%，且数值不可重复。",
     "tw": lambda age, gender, country, concern, notes:
-        f"{age}歲{gender}來自{country}，健康問題是「{concern}」，補充：{notes}。"
-        f"請設計3個以 ### 開頭的分類，每類下列3項具體指標，例如「睡眠品質: 78%」。數值請在25%-90%，不可重複。"
+        f"{age}歲{gender}來自{country}，健康問題是「{concern}」，補充：{notes}。請設計3個以 ### 開頭的分類，每類下列3項具體指標，例如「睡眠品質: 78%」。數值請在25%-90%，不可重複。"
 }
-
-def send_email(html_body, lang):
-    subject = LANGUAGE[lang]["email_subject"]
-    msg = MIMEText(html_body, 'html', 'utf-8')
-    msg['Subject'] = subject
-    msg['From'] = SMTP_USERNAME
-    msg['To'] = SMTP_USERNAME
-    try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USERNAME, SMTP_PASSWORD)
-            server.send_message(msg)
-    except Exception as e:
-        logging.error(f"Email send error: {e}")
 
 def compute_age(dob):
     try:
@@ -101,16 +83,15 @@ def compute_age(dob):
 
 def get_openai_response(prompt, temp=0.7):
     try:
-        result = client.chat.completions.create(
+        res = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=temp
         )
-        return result.choices[0].message.content
+        return res.choices[0].message.content
     except Exception as e:
         logging.error(f"OpenAI error: {e}")
         return "⚠️ 无法产生分析结果"
-
 
 def generate_metrics_with_ai(prompt):
     try:
@@ -143,6 +124,20 @@ def generate_metrics_with_ai(prompt):
     except Exception as e:
         logging.error(f"Chart parse error: {e}")
         return [{"title": "General Health", "labels": ["A", "B", "C"], "values": [60, 60, 60]}]
+
+def send_email(html_body, lang):
+    subject = LANGUAGE[lang]["email_subject"]
+    msg = MIMEText(html_body, 'html', 'utf-8')
+    msg['Subject'] = subject
+    msg['From'] = SMTP_USERNAME
+    msg['To'] = SMTP_USERNAME
+    try:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(msg)
+    except Exception as e:
+        logging.error(f"Email send error: {e}")
 
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
@@ -193,6 +188,7 @@ def health_analyze():
                 )
             html += "<br>"
 
+        # 🧠 Summary, 💡 Suggestions, 🛡️ Disclaimer, Footer
         summary_title = {"en": "🧠 Summary:", "zh": "🧠 总结：", "tw": "🧠 摘要："}.get(lang, "🧠 Summary:")
         suggestion_title = {"en": "💡 Creative Suggestions:", "zh": "💡 创意建议：", "tw": "💡 創意建議："}
         disclaimer_title = {"en": "🛡️ Disclaimer:", "zh": "🛡️ 免责声明：", "tw": "🛡️ 免責聲明："}
@@ -200,7 +196,7 @@ def health_analyze():
             "en": "🩺 This platform offers general lifestyle suggestions. Please consult a licensed medical professional for diagnosis or treatment decisions.",
             "zh": "🩺 本平台提供的是一般生活方式建议，请在需要时向专业医生咨询，以获取诊断或治疗意见。",
             "tw": "🩺 本平台僅提供一般生活建議，如有需要，請諮詢專業醫生以獲取診斷或治療建議。"
-        }
+        }.get(lang)
 
         html += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>{summary_title}</div><br>"
         for para in summary.split("\n"):
@@ -209,16 +205,15 @@ def health_analyze():
 
         html += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>{suggestion_title.get(lang)}</div><br>"
         for line in creative.split("\n"):
-            line = line.strip()
-            if line:
-                html += f"<p style='margin:16px 0; font-size:17px;'>{line}</p>"
+            if line.strip():
+                html += f"<p style='margin:16px 0; font-size:17px;'>{line.strip()}</p>"
 
         html += (
-            f"<br><br><p style='font-size:16px;'><strong>{disclaimer_title.get(lang)}</strong></p>"
-            f"<p style='font-size:15px;line-height:1.6;'>{disclaimer_text.get(lang)}</p>"
+            f"<br><br><p style='font-size:16px;'><strong>{disclaimer_title}</strong></p>"
+            f"<p style='font-size:15px; line-height:1.6;'>{disclaimer_text}</p>"
         )
 
-        html += f"<p style='color:#888;margin-top:20px;'>{labels['footer']}</p>"
+        html += f"<p style='color:#888; margin-top:20px;'>{labels['footer']}</p>"
 
         send_email(html, lang)
 
@@ -232,3 +227,5 @@ def health_analyze():
         logging.error(f"Health analyze error: {e}")
         return jsonify({"error": "Server error"}), 500
 
+if __name__ == "__main__":
+    app.run(debug=True, port=int(os.getenv("PORT", 5000)), host="0.0.0.0")
