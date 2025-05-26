@@ -150,43 +150,52 @@ def health_analyze():
         summary = get_openai_response(prompts["summary"](age, gender, country, concern, notes))
         creative = get_openai_response(prompts["creative"](age, gender, country, concern, notes), temp=0.85)
 
-        # ✅ FINAL FRONTEND HTML (title only — no private info)
-        html = f"<h4 style='text-align:center;'>{content['report_title']}</h4>"
-
-        # ✅ Chart display
+        # ✅ Build chart section for email only
+        chart_html = ""
         for m in metrics:
-            html += f"<strong>{m['title']}</strong><br>"
+            chart_html += f"<strong>{m['title']}</strong><br>"
             for label, val in zip(m['labels'], m['values']):
-                html += (
+                chart_html += (
                     f"<div style='display:flex;align-items:center;margin-bottom:8px;'>"
                     f"<span style='width:180px;'>{label}</span>"
                     f"<div style='flex:1;background:#eee;border-radius:5px;overflow:hidden;'>"
                     f"<div style='width:{val}%;height:14px;background:#5E9CA0;'></div></div>"
                     f"<span style='margin-left:10px;'>{val}%</span></div>"
                 )
-            html += "<br>"
+            chart_html += "<br>"
 
-        # ✅ Summary and tips
-        html += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
-        for para in summary.split("\n"):
-            html += f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{para}</p>"
-
-        html += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
-        for line in creative.split("\n"):
-            html += f"<p style='margin:16px 0; font-size:17px;'>{line}</p>"
-
-        html += (
+        # ✅ Full email version with charts
+        email_html = f"<h4 style='text-align:center;'>{content['report_title']}</h4>"
+        email_html += chart_html
+        email_html += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
+        email_html += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary.split("\n") if p.strip()])
+        email_html += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
+        email_html += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
+        email_html += (
             f"<br><br><p style='font-size:16px;'><strong>🛡️ Disclaimer:</strong></p>"
             f"<p style='font-size:15px; line-height:1.6;'>🩺 This platform offers general lifestyle suggestions. "
             f"Please consult a licensed medical professional for diagnosis or treatment decisions.</p>"
         )
-        html += f"<p style='color:#888;margin-top:20px;'>{labels['footer']}</p>"
+        email_html += f"<p style='color:#888;margin-top:20px;'>{labels['footer']}</p>"
 
-        send_email(html, lang)
+        # ✅ Frontend version — charts excluded
+        html_result = f"<h4 style='text-align:center;'>{content['report_title']}</h4>"
+        html_result += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
+        html_result += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary.split("\n") if p.strip()])
+        html_result += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
+        html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
+        html_result += (
+            f"<br><br><p style='font-size:16px;'><strong>🛡️ Disclaimer:</strong></p>"
+            f"<p style='font-size:15px; line-height:1.6;'>🩺 This platform offers general lifestyle suggestions. "
+            f"Please consult a licensed medical professional for diagnosis or treatment decisions.</p>"
+        )
+        html_result += f"<p style='color:#888;margin-top:20px;'>{labels['footer']}</p>"
+
+        send_email(email_html, lang)
 
         return jsonify({
             "metrics": metrics,
-            "html_result": html,
+            "html_result": html_result,
             "footer": labels['footer']
         })
 
