@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, traceback
+import os, logging, smtplib, traceback, re
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -148,11 +148,12 @@ def health_analyze():
 
         metrics = generate_metrics_with_ai(charts(age, gender, country, concern, notes))
 
-        # 🧽 Strip any duplicated 🎉 header from AI output
+        # ✅ CLEAN duplicated 🎉 in AI output
         raw_summary = get_openai_response(prompts["summary"](age, gender, country, concern, notes))
-        summary = raw_summary.replace(content['report_title'], '').strip()
+        summary = re.sub(re.escape(content['report_title']), '', raw_summary, flags=re.IGNORECASE).strip()
 
-        creative = get_openai_response(prompts["creative"](age, gender, country, concern, notes), temp=0.85)
+        raw_creative = get_openai_response(prompts["creative"](age, gender, country, concern, notes), temp=0.85)
+        creative = re.sub(re.escape(content['report_title']), '', raw_creative, flags=re.IGNORECASE).strip()
 
         chart_html = ""
         for m in metrics:
