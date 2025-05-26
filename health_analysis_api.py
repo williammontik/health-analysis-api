@@ -126,7 +126,7 @@ def send_email(html_body, lang):
 def health_analyze():
     try:
         data = request.get_json(force=True)
-        logging.debug(f"POST received: {data}")  # 🔍 See incoming payload
+        logging.debug(f"POST received: {data}")
 
         lang = data.get("lang", "en").strip().lower()
         labels = LANGUAGE_TEXTS.get(lang, LANGUAGE_TEXTS["en"])
@@ -150,14 +150,10 @@ def health_analyze():
         summary = get_openai_response(prompts["summary"](age, gender, country, concern, notes))
         creative = get_openai_response(prompts["creative"](age, gender, country, concern, notes), temp=0.85)
 
+        # ✅ FINAL FRONTEND HTML (title only — no private info)
         html = f"<h4 style='text-align:center;'>{content['report_title']}</h4>"
-        html += f"<p><strong>{labels['name']}:</strong> {name}<br><strong>{labels['dob']}:</strong> {dob}<br>"
-        html += f"<strong>{labels['country']}:</strong> {country}<br><strong>{labels['gender']}:</strong> {gender}<br>"
-        html += f"<strong>{labels['age']}:</strong> {age}<br><strong>{labels['height']}:</strong> {height}<br>"
-        html += f"<strong>{labels['weight']}:</strong> {weight}<br><strong>{labels['concern']}:</strong> {concern}<br>"
-        html += f"<strong>{labels['desc']}:</strong> {notes}<br><strong>{labels['ref']}:</strong> {ref}<br>"
-        html += f"<strong>{labels['angel']}:</strong> {angel}</p>"
 
+        # ✅ Chart display
         for m in metrics:
             html += f"<strong>{m['title']}</strong><br>"
             for label, val in zip(m['labels'], m['values']):
@@ -170,6 +166,7 @@ def health_analyze():
                 )
             html += "<br>"
 
+        # ✅ Summary and tips
         html += f"<br><div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
         for para in summary.split("\n"):
             html += f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{para}</p>"
@@ -195,7 +192,7 @@ def health_analyze():
 
     except Exception as e:
         logging.error(f"Health analyze error: {e}")
-        traceback.print_exc()  # ✅ Detailed traceback for debugging
+        traceback.print_exc()
         return jsonify({"error": "Server error"}), 500
 
 if __name__ == "__main__":
