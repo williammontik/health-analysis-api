@@ -141,13 +141,11 @@ def health_analyze():
         summary = get_openai_response(prompts["summary"](age, gender, country, concern, notes))
         creative = get_openai_response(prompts["creative"](age, gender, country, concern, notes), temp=0.85)
 
-        html_result = f"<h4 style='text-align:center;'>{content['report_title']}</h4><br>"
+        html_result = f"<div style='font-size:24px; font-weight:bold; text-align:center; margin-bottom:20px;'>{content['report_title']}</div>"
         html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
         html_result += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary.split("\n") if p.strip()])
         html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
         html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
-
-        # ✅ Updated Footer Block
         html_result += """
             <br><div style='background-color:#f9f9f9;color:#333;padding:20px;border-left:6px solid #4CAF50;
             border-radius:8px;margin-top:30px;'>
