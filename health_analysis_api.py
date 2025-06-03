@@ -79,12 +79,13 @@ def format_email(content, summary, creative, chart_values, labels):
 @app.route("/health_analyze", methods=["POST"])
 def analyze_health():
     data = request.get_json()
+    print("Received data:", data)  # ✅ Debugging line
 
     name = data.get("name")
     dob_day = data.get("dob_day")
     dob_month = data.get("dob_month")
     dob_year = data.get("dob_year")
-    dob = f"{dob_year}-{dob_month.zfill(2)}-{dob_day.zfill(2)}"
+    dob = f"{dob_year}-{dob_month.zfill(2)}-{dob_day.zfill(2)}"  # ✅ Fix here
 
     gender = data.get("gender")
     height = data.get("height")
@@ -93,7 +94,7 @@ def analyze_health():
     concern = data.get("condition")
     notes = data.get("details")
     referrer = data.get("referrer", "")
-    angel = data.get("angel", "")  # Wellness Pal in UI
+    angel = data.get("angel", "")  # Still works even if labeled “Wellness Pal” in UI
 
     lang = "en"
     labels = LANGUAGE_TEXTS[lang]
