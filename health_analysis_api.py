@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, traceback, re
+import os, logging, smtplib, traceback
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -136,16 +136,23 @@ def health_analyze():
         ref = data.get("referrer")
         angel = data.get("angel")
         age = compute_age(dob)
+        chart_images = data.get("chart_images", [])
 
         metrics = generate_metrics_with_ai(charts(age, gender, country, concern, notes))
         summary = get_openai_response(prompts["summary"](age, gender, country, concern, notes))
         creative = get_openai_response(prompts["creative"](age, gender, country, concern, notes), temp=0.85)
 
-        html_result = f"<div style='font-size:24px; font-weight:bold; text-align:center; margin-bottom:20px;'>{content['report_title']}</div>"
-        html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
+        html_result = f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
         html_result += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary.split("\n") if p.strip()])
         html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
         html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
+
+        if chart_images:
+            html_result += "<div style='margin-top:30px;'><strong style='font-size:20px;'>📈 Chart Visualizations:</strong><br><br>"
+            for img in chart_images:
+                html_result += f"<img src='{img}' style='width:100%;max-width:600px;margin-bottom:20px;border:1px solid #ccc;border-radius:8px;'><br>"
+            html_result += "</div>"
+
         html_result += """
             <br><div style='background-color:#f9f9f9;color:#333;padding:20px;border-left:6px solid #4CAF50;
             border-radius:8px;margin-top:30px;'>
