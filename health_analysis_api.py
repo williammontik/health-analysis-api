@@ -138,7 +138,6 @@ def health_analyze():
         age = compute_age(dob)
 
         metrics = generate_metrics_with_ai(charts(age, gender, country, concern, notes))
-
         summary = get_openai_response(prompts["summary"](age, gender, country, concern, notes))
         creative = get_openai_response(prompts["creative"](age, gender, country, concern, notes), temp=0.85)
 
@@ -147,11 +146,19 @@ def health_analyze():
         html_result += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary.split("\n") if p.strip()])
         html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
         html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
+
+        # ✅ Updated Footer Block
         html_result += """
-            <br><p style='font-size:16px;'><strong>🛡️ Disclaimer:</strong></p>
-            <p style='font-size:15px; line-height:1.6;'>🩺 This platform offers general lifestyle suggestions. Please consult a licensed medical professional for diagnosis or treatment decisions.</p>
+            <br><div style='background-color:#f9f9f9;color:#333;padding:20px;border-left:6px solid #4CAF50;
+            border-radius:8px;margin-top:30px;'>
+                <strong>📊 Insights Generated From:</strong>
+                <ul style='margin-top:10px;margin-bottom:10px;padding-left:20px;line-height:1.7;'>
+                    <li>Data from anonymized individuals across Singapore, Malaysia, and Taiwan</li>
+                    <li>Wellness trend analysis and lifestyle benchmarking by KataChat AI</li>
+                </ul>
+                <p style='margin-top:10px;line-height:1.7;'>🛡️ All data is confidential and used solely for personalized insight. This platform does not serve as medical diagnosis. Please consult a licensed professional for health conditions.</p>
+            </div>
         """
-        html_result += f"<p style='color:#888;margin-top:20px;'>{labels['footer']}</p>"
 
         send_email(html_result, lang)
 
