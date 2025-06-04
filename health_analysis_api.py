@@ -1,86 +1,198 @@
 # -*- coding: utf-8 -*-
-import random
+import os, logging, smtplib, traceback
+from datetime import datetime
+from dateutil import parser
+from email.mime.text import MIMEText
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from openai import OpenAI
 
 app = Flask(__name__)
 CORS(app)
+logging.basicConfig(level=logging.DEBUG)
 
-def generate_metrics():
-    return [random.randint(35, 75) for _ in range(3)]
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def generate_health_insight(age, country, concern, metrics):
-    m1, m2, m3 = metrics
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+SMTP_USERNAME = "kata.chatbot@gmail.com"
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
-    if concern.lower() == "sleep quality and burnout":
-        return f"""
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-In Singapore’s fast-moving work culture, many professionals in their {age}s face deeply disrupted rest. A <strong>Sleep Efficiency: {m1}%</strong> reflects not just lack of time — but broken cycles. Night scrolling, late work emails, and high coffee intake interrupt vital stages of sleep...
-</p>
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-A <strong>Cortisol Rhythm: {m2}%</strong> reveals high stress activation. Even when resting, the body may be on high alert. Afternoon anxiety and sugar cravings are common, especially for those juggling professional goals and family expectations.
-</p>
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-With a <strong>Recovery Index: {m3}%</strong>, the body struggles to rebuild cellular energy. Morning fog and emotional flatness become routine when restorative rest is sacrificed day after day. It's not a lack of effort, but an overflow of responsibility that drains deeply.
-</p>
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-Recovery often begins with silence. Gentle stretching at dawn, lowered light exposure at night, and sacred sleep hours have helped many in their 40s reclaim deep rest — not as luxury, but as survival. 🛏️🌿
-</p>
-"""
-    elif concern.lower() == "sensitive skin and redness":
-        return f"""
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-At around {age}, many in Malaysia begin to notice their skin reacting more often — to heat, fabric, even emotions. A <strong>Hydration Level: {m1}%</strong> suggests skin cells aren’t holding moisture, often leading to stinging, itch, or dullness, especially under constant air-conditioning.
-</p>
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-A <strong>Redness Index: {m2}%</strong> indicates reactive inflammation. It could be triggered by fabrics, sun, or harsh cleansers — common in fast-paced lifestyles where skincare is rushed or skipped. Stress-induced redness is also often overlooked in daily routines.
-</p>
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-The <strong>Chemical Exposure: {m3}%</strong> shows overuse of whitening or exfoliating products. Many young adults unknowingly overload the skin barrier by layering too many active ingredients or using harsh detergents at home and work.
-</p>
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-True skincare in this region means going minimal: aloe soaks, rice water rinses, shaded morning walks, and even natural oils like tamanu or moringa. The calmer the care, the louder the healing. 🍃
-</p>
-"""
-    elif concern.lower() == "afternoon fatigue and bloating":
-        return f"""
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-By age {age}, especially in fast-paced regions like Taiwan, digestion becomes more sensitive. A <strong>Digestive Rhythm: {m1}%</strong> signals the gut is off-track. Skipping breakfast or multitasking while eating affects absorption and energy flow by noon.
-</p>
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-A <strong>Inflammation Index: {m2}%</strong> points to low-grade irritation. Tech stress, late dinners, and fried snacks are often culprits — with many suppressing early signs like bloating or heaviness until symptoms become daily discomfort.
-</p>
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-The <strong>Vitality Level: {m3}%</strong> reflects a tired but functioning body. The 3PM crash isn’t laziness — it’s biology. When meals are rushed or digestion is weak, energy reserves fall dramatically and mood dips without warning.
-</p>
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-Healing begins with rhythm. Warm soups, ginger compresses, or 10-minute foot soaks after dinner help many recalibrate digestion. Those in their 30s often find that healing comes not from medication, but mindful mealtime rituals. 🥣
-</p>
-"""
-    elif concern.lower() == "hormonal imbalance and skin breakouts":
-        return f"""
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-In tropical Singapore, hormonal swings often appear in the late 30s as adult acne, mood changes, or sudden skin flare-ups. A <strong>Hormonal Stability: {m1}%</strong> suggests irregular cycles or internal hormonal surges that are frequently missed in basic health checks.
-</p>
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-A <strong>Detox Pathways: {m2}%</strong> hints at liver and kidney systems working overtime — possibly overloaded by processed food, sleep debt, stimulants, or medication. Many adults carry this silently, unaware of internal buildup.
-</p>
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-The <strong>Skin Barrier: {m3}%</strong> shows the skin is fragile, reactive, and easily inflamed. When hormonal balance is off, even trusted products may sting or cause redness. Flare-ups around the chin or jawline are especially common during this life stage.
-</p>
-<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>
-Balance is found not in treatment but in trust. Nourishing soups, maca tea, liver-friendly herbs, digital breaks, and even magnesium soaks can restore inner calm. Skin often reflects emotional peace, not just product use. 🌿💧
-</p>
-"""
-    else:
-        return "<p style='line-height:1.7;'>Concern not recognized. Please check input.</p>"
+LANGUAGE = {
+    "en": {
+        "email_subject": "Your Health Insight Report",
+        "report_title": "🎉 Global Identical Health Insights"
+    }
+}
 
-@app.route("/health_insight", methods=["POST"])
-def health_insight():
-    data = request.json
-    age = data.get("age", 40)
-    country = data.get("country", "Singapore")
-    concern = data.get("concern", "Sleep Quality and Burnout")
-    metrics = data.get("metrics", generate_metrics())
-    summary = generate_health_insight(age, country, concern, metrics)
-    return jsonify({"summary": summary})
+LANGUAGE_TEXTS = {
+    "en": {
+        "name": "Full Name", "dob": "Date of Birth", "country": "Country", "gender": "Gender",
+        "age": "Age", "height": "Height (cm)", "weight": "Weight (kg)", "concern": "Main Concern",
+        "desc": "Brief Description", "ref": "Referrer", "angel": "Wellness Pal",
+        "footer": "📩 This report has been emailed to you. All content is generated by KataChat AI, PDPA-compliant."
+    }
+}
+
+def build_summary_prompt(age, gender, country, concern, notes, metrics):
+    metric_lines = []
+    for block in metrics:
+        for label, value in zip(block["labels"], block["values"]):
+            metric_lines.append(f"{label}: {value}%")
+    metrics_summary = ", ".join(metric_lines)
+    
+    return (
+        f"A {age}-year-old {gender} from {country} is facing the health concern '{concern}'. "
+        f"Health indicator scores are: {metrics_summary}. Notes: {notes}. \n\n"
+        f"Write 4 emotionally warm and insightful paragraphs in third-person, weaving in these metrics where appropriate. "
+        f"Each paragraph should be 4–6 sentences long. Do not use the word 'you'. "
+        f"Make it sound like a human wellness coach is reflecting on the person’s health story."
+    )
+
+def build_suggestions_prompt(age, gender, country, concern, notes):
+    return (
+        f"As a wellness coach, suggest 10 creative lifestyle improvements for a {age}-year-old {gender} from {country} "
+        f"who is dealing with '{concern}'. Use a gentle tone and emojis for each point. Include practical ideas "
+        f"based on the following notes: {notes}."
+    )
+
+def compute_age(dob):
+    try:
+        dt = parser.parse(dob)
+        today = datetime.today()
+        return today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
+    except:
+        return 0
+
+def get_openai_response(prompt, temp=0.7):
+    try:
+        result = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temp
+        )
+        return result.choices[0].message.content
+    except Exception as e:
+        logging.error(f"OpenAI error: {e}")
+        return "⚠️ Unable to generate response."
+
+def generate_metrics_with_ai(prompt):
+    try:
+        res = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        lines = res.choices[0].message.content.strip().split("\n")
+        metrics = []
+        current_title, labels, values = "", [], []
+        for line in lines:
+            if line.startswith("###"):
+                if current_title and labels and values:
+                    metrics.append({"title": current_title, "labels": labels, "values": values})
+                current_title = line.replace("###", "").strip()
+                labels, values = [], []
+            elif ":" in line:
+                try:
+                    label, val = line.split(":", 1)
+                    labels.append(label.strip())
+                    values.append(int(val.strip().replace("%", "")))
+                except:
+                    continue
+        if current_title and labels and values:
+            metrics.append({"title": current_title, "labels": labels, "values": values})
+        return metrics or [{"title": "General Health", "labels": ["A", "B", "C"], "values": [60, 60, 60]}]
+    except Exception as e:
+        logging.error(f"Chart parse error: {e}")
+        return [{"title": "General Health", "labels": ["A", "B", "C"], "values": [60, 60, 60]}]
+
+def send_email(html_body, lang):
+    subject = LANGUAGE.get(lang, LANGUAGE["en"])['email_subject']
+    msg = MIMEText(html_body, 'html', 'utf-8')
+    msg['Subject'] = subject
+    msg['From'] = SMTP_USERNAME
+    msg['To'] = SMTP_USERNAME
+    try:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(msg)
+    except Exception as e:
+        logging.error(f"Email send error: {e}")
+
+@app.route("/health_analyze", methods=["POST"])
+def health_analyze():
+    try:
+        data = request.get_json(force=True)
+        logging.debug(f"POST received: {data}")
+
+        lang = data.get("lang", "en").strip().lower()
+        labels = LANGUAGE_TEXTS.get(lang, LANGUAGE_TEXTS["en"])
+        content = LANGUAGE.get(lang, LANGUAGE["en"])
+
+        name = data.get("name")
+        dob = f"{data.get('dob_year')}-{str(data.get('dob_month')).zfill(2)}-{str(data.get('dob_day')).zfill(2)}"
+        gender = data.get("gender")
+        height = data.get("height")
+        weight = data.get("weight")
+        country = data.get("country")
+        concern = data.get("condition")
+        notes = data.get("details") or "No additional details"
+        ref = data.get("referrer")
+        angel = data.get("angel")
+        age = compute_age(dob)
+        chart_images = data.get("chart_images", [])
+
+        # Generate metrics first so we can use them in prompt
+        chart_prompt = (
+            f"A {age}-year-old {gender} from {country} has the health issue '{concern}'. Notes: {notes}. "
+            f"Generate 3 health categories starting with ###, and under each, list 3 real indicators like 'Sleep Quality: 70%'. "
+            f"Use values from 25% to 90%, no repeats."
+        )
+        metrics = generate_metrics_with_ai(chart_prompt)
+
+        # Create prompts with metrics injected
+        summary_prompt = build_summary_prompt(age, gender, country, concern, notes, metrics)
+        suggestions_prompt = build_suggestions_prompt(age, gender, country, concern, notes)
+
+        summary = get_openai_response(summary_prompt)
+        creative = get_openai_response(suggestions_prompt, temp=0.85)
+
+        html_result = f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
+        html_result += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary.split("\n") if p.strip()])
+        html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
+        html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
+
+        if chart_images:
+            html_result += "<div style='margin-top:30px;'><strong style='font-size:20px;'>📈 Chart Visualizations:</strong><br><br>"
+            for img in chart_images:
+                html_result += f"<img src='{img}' style='width:100%;max-width:600px;margin-bottom:20px;border:1px solid #ccc;border-radius:8px;'><br>"
+            html_result += "</div>"
+
+        html_result += """
+            <br><div style='background-color:#f9f9f9;color:#333;padding:20px;border-left:6px solid #4CAF50;
+            border-radius:8px;margin-top:30px;'>
+                <strong>📊 Insights Generated From:</strong>
+                <ul style='margin-top:10px;margin-bottom:10px;padding-left:20px;line-height:1.7;'>
+                    <li>Data from anonymized individuals across Singapore, Malaysia, and Taiwan</li>
+                    <li>Wellness trend analysis and lifestyle benchmarking by KataChat AI</li>
+                </ul>
+                <p style='margin-top:10px;line-height:1.7;'>🛡️ All data is confidential and used solely for personalized insight. This platform does not serve as medical diagnosis. Please consult a licensed professional for health conditions.</p>
+            </div>
+        """
+
+        send_email(html_result, lang)
+
+        return jsonify({
+            "metrics": metrics,
+            "html_result": html_result,
+            "footer": labels['footer']
+        })
+
+    except Exception as e:
+        logging.error(f"Health analyze error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Server error"}), 500
+
+if __name__ == "__main__":
+    app.run(debug=True, port=int(os.getenv("PORT", 5000)), host="0.0.0.0")
