@@ -45,9 +45,11 @@ def build_summary_prompt(age, gender, country, concern, notes, metrics):
         f"A {age}-year-old {gender} from {country} is experiencing the issue '{concern}'. "
         f"Health metric readings include: {metrics_summary}. Notes: {notes}. \n\n"
         f"Write 4 rich and emotionally warm paragraphs in third-person. "
-        f"⚠️ Never use the person’s name or any personal pronouns like she, her, he, his. "
-        f"⚠️ Also avoid terms like 'this individual' or 'this person'. "
+        f"⚠️ Never use the person’s name. Never use any personal pronouns like she, her, he, his. "
+        f"⚠️ Never use phrases like 'this individual', 'this person', or 'they'. "
         f"Use phrasing like 'women in their 60s in {country}' or 'individuals in this age group'. "
+        f"You MUST accurately reflect the exact percentage values from the metrics in the story. "
+        f"Do not guess or generalize. Each paragraph should refer to at least one exact value from the chart data. "
         f"Make it feel like a human wellness narrative, not robotic or clinical."
     )
 
@@ -56,7 +58,7 @@ def build_suggestions_prompt(age, gender, country, concern, notes):
         f"Suggest 10 specific and gentle lifestyle improvements for a {age}-year-old {gender} from {country} experiencing '{concern}'. "
         f"Use a warm, supportive tone and include helpful emojis. "
         f"Make the suggestions practical, culturally appropriate, and nurturing. "
-        f"⚠️ Do not use names, pronouns (she/her/he/his), or 'this individual'. "
+        f"⚠️ Do not use names, pronouns (she/her/he/his), or phrases like 'this individual'. "
         f"Only use phrasing like 'women in their 60s in {country}' or 'individuals facing this concern'."
     )
 
