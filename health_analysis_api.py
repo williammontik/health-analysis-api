@@ -40,20 +40,20 @@ def build_summary_prompt(age, gender, country, concern, notes, metrics):
         for label, value in zip(block["labels"], block["values"]):
             metric_lines.append(f"{label}: {value}%")
     metrics_summary = ", ".join(metric_lines)
-    
+
     return (
-        f"A {age}-year-old {gender} from {country} is facing the health concern '{concern}'. "
-        f"Health indicator scores are: {metrics_summary}. Notes: {notes}. \n\n"
-        f"Write 4 emotionally warm and insightful paragraphs in third-person, weaving in these metrics where appropriate. "
-        f"Each paragraph should be 4–6 sentences long. Do not use the word 'you'. "
-        f"Make it sound like a human wellness coach is reflecting on the person’s health story."
+        f"A {age}-year-old {gender} from {country} is experiencing the issue '{concern}'. "
+        f"Health metric readings include: {metrics_summary}. Notes: {notes}. \n\n"
+        f"Write 4 rich and emotionally warm paragraphs in third-person, avoiding direct references like 'the 71-year-old female'. "
+        f"Instead, use neutral phrasing such as 'individuals in this age group in {country}' or 'women in their early 40s'. "
+        f"Weave the metric values naturally into the story. Include environmental and emotional context where appropriate. "
+        f"Make it feel like a human wellness narrative, not robotic or clinical. Avoid the phrase 'as a wellness coach'."
     )
 
 def build_suggestions_prompt(age, gender, country, concern, notes):
     return (
-        f"As a wellness coach, suggest 10 creative lifestyle improvements for a {age}-year-old {gender} from {country} "
-        f"who is dealing with '{concern}'. Use a gentle tone and emojis for each point. Include practical ideas "
-        f"based on the following notes: {notes}."
+        f"Suggest 10 specific and gentle lifestyle improvements for a {age}-year-old {gender} from {country} experiencing '{concern}'. "
+        f"Use supportive tone and include emojis. Make the suggestions practical, culturally appropriate, and nurturing."
     )
 
 def compute_age(dob):
@@ -143,15 +143,15 @@ def health_analyze():
         age = compute_age(dob)
         chart_images = data.get("chart_images", [])
 
-        # Generate metrics first so we can use them in prompt
+        # Generate metrics first
         chart_prompt = (
-            f"A {age}-year-old {gender} from {country} has the health issue '{concern}'. Notes: {notes}. "
-            f"Generate 3 health categories starting with ###, and under each, list 3 real indicators like 'Sleep Quality: 70%'. "
-            f"Use values from 25% to 90%, no repeats."
+            f"A {age}-year-old {gender} from {country} has the health concern '{concern}'. Notes: {notes}. "
+            f"Generate 3 health categories starting with ###, each with 2 real indicators like 'Sleep Quality: 70%'. "
+            f"Ensure 6 total unique metrics between 25%–90%. Avoid duplicates."
         )
         metrics = generate_metrics_with_ai(chart_prompt)
 
-        # Create prompts with metrics injected
+        # Generate final summary and tips
         summary_prompt = build_summary_prompt(age, gender, country, concern, notes, metrics)
         suggestions_prompt = build_suggestions_prompt(age, gender, country, concern, notes)
 
@@ -177,7 +177,7 @@ def health_analyze():
                     <li>Data from anonymized individuals across Singapore, Malaysia, and Taiwan</li>
                     <li>Wellness trend analysis and lifestyle benchmarking by KataChat AI</li>
                 </ul>
-                <p style='margin-top:10px;line-height:1.7;'>🛡️ All data is confidential and used solely for personalized insight. This platform does not serve as medical diagnosis. Please consult a licensed professional for health conditions.</p>
+                <p style='margin-top:10px;line-height:1.7;'>🛡️ This is not a medical diagnosis. For serious health concerns, please consult a licensed professional.</p>
             </div>
         """
 
