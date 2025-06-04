@@ -147,12 +147,13 @@ def health_analyze():
         chart_summary = format_chart_summary(metrics)
 
         summary_prompt = (
-            f"You are a warm, reflective health coach writing a personalized report for a {age}-year-old individual from {country} experiencing '{concern}'. "
-            f"Here are their key health metrics: {chart_summary}. Write exactly 4 emotionally rich, narrative-style paragraphs. "
-            f"Weave these metric values naturally into each paragraph using <strong>Label: 42%</strong> formatting inside full sentences. "
-            f"Use <p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>...</p> for each paragraph. "
-            f"Do not list or explain metrics separately. Create a smooth, human-like narrative that connects emotion, insight, and lifestyle. "
-            f"Reference people of similar age in Singapore, Malaysia, or Taiwan. Never say 'you'—always use third-person phrasing."
+            f"You are a warm, reflective health coach writing a personalized health reflection for a {age}-year-old individual from {country} experiencing '{concern}'. "
+            f"The following health metrics have been observed: {chart_summary}. Write exactly 4 emotionally rich, deeply insightful paragraphs. "
+            f"Use <p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>...</p> tags for each. "
+            f"Weave the metric values naturally into the sentences using <strong>...</strong> formatting (e.g., <strong>Hydration: 42%</strong>). "
+            f"Avoid robotic bullet points or list-like structures. Do NOT invent fictional characters or names. "
+            f"Use culturally grounded language and examples appropriate for adults living in Singapore, Malaysia, or Taiwan. "
+            f"The tone should be kind, slow, narrative, and wise—like a gentle health article that understands real life."
         )
         summary = get_openai_response(summary_prompt)
 
