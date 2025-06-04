@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, traceback
+import os, logging, smtplib, traceback, re
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -50,7 +50,8 @@ def build_summary_prompt(age, gender, country, concern, notes, metrics):
         f"Use phrasing like 'women in their 60s in {country}' or 'individuals in this age group'. "
         f"You MUST accurately reflect the exact percentage values from the metrics in the story. "
         f"Do not guess or generalize. Each paragraph should refer to at least one exact value from the chart data. "
-        f"Make it feel like a human wellness narrative, not robotic or clinical."
+        f"Make it feel like a human wellness narrative, not robotic or clinical. "
+        f"You must not use any personal pronouns or refer to a single person. Reframe everything using group trends."
     )
 
 def build_suggestions_prompt(age, gender, country, concern, notes):
@@ -134,6 +135,11 @@ def send_email(html_body, lang):
     except Exception as e:
         logging.error(f"Email send error: {e}")
 
+def contains_disallowed_terms(text):
+    disallowed = ["he ", "she ", "his ", "her ", "they ", "them ", "this individual", "this person"]
+    lowered = text.lower()
+    return any(word in lowered for word in disallowed)
+
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
     try:
@@ -168,7 +174,10 @@ def health_analyze():
         summary_prompt = build_summary_prompt(age, gender, country, concern, notes, metrics)
         suggestions_prompt = build_suggestions_prompt(age, gender, country, concern, notes)
 
-        summary = get_openai_response(summary_prompt)
+        summary = get_openai_response(summary_prompt, temp=0.3)
+        if contains_disallowed_terms(summary):
+            return jsonify({"error": "⚠️ GPT output contained forbidden phrases. Please try again."}), 500
+
         creative = get_openai_response(suggestions_prompt, temp=0.85)
 
         html_result = f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
