@@ -44,16 +44,20 @@ def build_summary_prompt(age, gender, country, concern, notes, metrics):
     return (
         f"A {age}-year-old {gender} from {country} is experiencing the issue '{concern}'. "
         f"Health metric readings include: {metrics_summary}. Notes: {notes}. \n\n"
-        f"Write 4 rich and emotionally warm paragraphs in third-person, avoiding direct references like 'the 71-year-old female'. "
-        f"Instead, use neutral phrasing such as 'individuals in this age group in {country}' or 'women in their early 40s'. "
-        f"Weave the metric values naturally into the story. Include environmental and emotional context where appropriate. "
-        f"Make it feel like a human wellness narrative, not robotic or clinical. Avoid the phrase 'as a wellness coach'."
+        f"Write 4 rich and emotionally warm paragraphs in third-person. "
+        f"⚠️ Never use the person’s name. Never use any personal pronouns like she, her, he, his. "
+        f"Use phrasing like 'women in their 60s in {country}' or 'individuals in this age group'. "
+        f"Weave the metric values naturally into the story. Include emotional and environmental context where appropriate. "
+        f"Make it feel like a human wellness narrative, not robotic or clinical."
     )
 
 def build_suggestions_prompt(age, gender, country, concern, notes):
     return (
         f"Suggest 10 specific and gentle lifestyle improvements for a {age}-year-old {gender} from {country} experiencing '{concern}'. "
-        f"Use supportive tone and include emojis. Make the suggestions practical, culturally appropriate, and nurturing."
+        f"Use a warm, supportive tone and include helpful emojis. "
+        f"Make the suggestions practical, culturally appropriate, and nurturing. "
+        f"⚠️ Do not use the person’s name or any personal pronouns like she, her, he, his. "
+        f"Use phrasing like 'women in their 60s in {country}' or 'individuals facing this concern'."
     )
 
 def compute_age(dob):
@@ -143,11 +147,11 @@ def health_analyze():
         age = compute_age(dob)
         chart_images = data.get("chart_images", [])
 
-        # Generate metrics first
+        # Generate metrics first (3 per category, 3 categories = 9)
         chart_prompt = (
             f"A {age}-year-old {gender} from {country} has the health concern '{concern}'. Notes: {notes}. "
-            f"Generate 3 health categories starting with ###, each with 2 real indicators like 'Sleep Quality: 70%'. "
-            f"Ensure 6 total unique metrics between 25%–90%. Avoid duplicates."
+            f"Generate 3 health categories starting with ###, each with 3 real indicators like 'Sleep Quality: 70%'. "
+            f"Ensure 9 total unique metrics between 25%–90%. Avoid duplicates."
         )
         metrics = generate_metrics_with_ai(chart_prompt)
 
