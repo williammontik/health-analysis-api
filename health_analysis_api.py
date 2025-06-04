@@ -36,8 +36,6 @@ LANGUAGE_TEXTS = {
 
 PROMPTS = {
     "en": {
-        "summary": lambda age, gender, country, concern, notes:
-            f"A {age}-year-old {gender} from {country} is experiencing '{concern}'. Description: {notes}. Write 4 paragraphs of advice in third-person. Avoid using 'you'.",
         "creative": lambda age, gender, country, concern, notes:
             f"As a health coach, give 10 practical suggestions with emojis for a {age}-year-old {gender} from {country} facing '{concern}'. Notes: {notes}."
     }
@@ -99,6 +97,13 @@ def generate_metrics_with_ai(prompt):
         logging.error(f"Chart parse error: {e}")
         return [{"title": "General Health", "labels": ["A", "B", "C"], "values": [60, 60, 60]}]
 
+def format_chart_summary(metrics):
+    parts = []
+    for metric in metrics[:3]:
+        for label, val in zip(metric.get("labels", []), metric.get("values", [])):
+            parts.append(f"{label.strip()}: {val}%")
+    return ", ".join(parts)
+
 def send_email(html_body, lang):
     subject = LANGUAGE.get(lang, LANGUAGE["en"])['email_subject']
     msg = MIMEText(html_body, 'html', 'utf-8')
@@ -139,13 +144,22 @@ def health_analyze():
         chart_images = data.get("chart_images", [])
 
         metrics = generate_metrics_with_ai(charts(age, gender, country, concern, notes))
-        summary = get_openai_response(prompts["summary"](age, gender, country, concern, notes))
-        creative = get_openai_response(prompts["creative"](age, gender, country, concern, notes), temp=0.85)
+        chart_summary = format_chart_summary(metrics)
 
-        html_result = f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
-        html_result += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary.split("\n") if p.strip()])
-        html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
-        html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
+        summary_prompt = (
+            f"Based on the following health metrics — {chart_summary} — "
+            f"write 4 paragraphs of health advice for a {age}-year-old individual from {country} facing '{concern}'. "
+            f"Explain how these metrics may relate to their condition. Avoid using 'you'. Use third-person tone. "
+            f"Reference similar individuals of the same age living in Singapore, Malaysia, or Taiwan."
+        )
+        summary_raw = get_openai_response(summary_prompt)
+        summary = ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary_raw.split("\n") if p.strip()])
+
+        creative_raw = get_openai_response(prompts["creative"](age, gender, country, concern, notes), temp=0.85)
+        creative = ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative_raw.split("\n") if line.strip()])
+
+        html_result = "<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>" + summary
+        html_result += "<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>" + creative
 
         if chart_images:
             html_result += "<div style='margin-top:30px;'><strong style='font-size:20px;'>📈 Chart Visualizations:</strong><br><br>"
