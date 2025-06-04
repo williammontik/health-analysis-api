@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, traceback, re
+import os, logging, smtplib, traceback
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -39,19 +39,16 @@ def build_summary_prompt(age, gender, country, concern, notes, metrics):
     for block in metrics:
         for label, value in zip(block["labels"], block["values"]):
             metric_lines.append(f"{label}: {value}%")
+    metric_lines = metric_lines[:9]  # Prevent token overflow
     metrics_summary = ", ".join(metric_lines)
 
     return (
-        f"A {age}-year-old {gender} from {country} is experiencing the issue '{concern}'. "
-        f"Health metric readings include: {metrics_summary}. Notes: {notes}. \n\n"
-        f"Write 4 rich and emotionally warm paragraphs in third-person. "
-        f"⚠️ Never use the person’s name. Never use any personal pronouns like she, her, he, his. "
-        f"⚠️ Never use phrases like 'this individual', 'this person', or 'they'. "
-        f"Use phrasing like 'women in their 60s in {country}' or 'individuals in this age group'. "
-        f"You MUST accurately reflect the exact percentage values from the metrics in the story. "
-        f"Do not guess or generalize. Each paragraph should refer to at least one exact value from the chart data. "
-        f"Make it feel like a human wellness narrative, not robotic or clinical. "
-        f"You must not use any personal pronouns or refer to a single person. Reframe everything using group trends."
+        f"Write a 4-paragraph health insight about a {gender} aged {age} living in {country}, facing the issue '{concern}'. "
+        f"The following health metrics must be mentioned directly and accurately: {metrics_summary}. Notes: {notes}. "
+        f"⚠️ Never use names, pronouns like he/she/they, or phrases like 'this individual'. "
+        f"Use only group-based references like 'women in their 60s in {country}' or 'people in this age group across the region'. "
+        f"Each paragraph must include at least one exact % from the metrics. "
+        f"Tone should be natural, empathetic, and feel like a warm wellness reflection — not robotic or clinical."
     )
 
 def build_suggestions_prompt(age, gender, country, concern, notes):
@@ -81,6 +78,7 @@ def get_openai_response(prompt, temp=0.7):
         return result.choices[0].message.content
     except Exception as e:
         logging.error(f"OpenAI error: {e}")
+        traceback.print_exc()
         return "⚠️ Unable to generate response."
 
 def generate_metrics_with_ai(prompt):
@@ -115,6 +113,7 @@ def generate_metrics_with_ai(prompt):
         }]
     except Exception as e:
         logging.error(f"Chart parse error: {e}")
+        traceback.print_exc()
         return [{
             "title": "Diet Quality",
             "labels": ["Daily intake of saturated fats", "Consumption of fiber-rich foods", "Processed food intake"],
@@ -134,11 +133,6 @@ def send_email(html_body, lang):
             server.send_message(msg)
     except Exception as e:
         logging.error(f"Email send error: {e}")
-
-def contains_disallowed_terms(text):
-    disallowed = ["he ", "she ", "his ", "her ", "they ", "them ", "this individual", "this person"]
-    lowered = text.lower()
-    return any(word in lowered for word in disallowed)
 
 @app.route("/health_analyze", methods=["POST"])
 def health_analyze():
@@ -174,11 +168,13 @@ def health_analyze():
         summary_prompt = build_summary_prompt(age, gender, country, concern, notes, metrics)
         suggestions_prompt = build_suggestions_prompt(age, gender, country, concern, notes)
 
-        summary = get_openai_response(summary_prompt, temp=0.3)
-        if contains_disallowed_terms(summary):
-            return jsonify({"error": "⚠️ GPT output contained forbidden phrases. Please try again."}), 500
+        summary = get_openai_response(summary_prompt)
+        if "⚠️" in summary:
+            summary = "💬 Summary temporarily unavailable due to system delay."
 
         creative = get_openai_response(suggestions_prompt, temp=0.85)
+        if "⚠️" in creative:
+            creative = "💡 Suggestions could not be loaded at this time. Please try again later."
 
         html_result = f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
         html_result += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary.split("\n") if p.strip()])
