@@ -146,14 +146,13 @@ def health_analyze():
         metrics = generate_metrics_with_ai(charts(age, gender, country, concern, notes))
         chart_summary = format_chart_summary(metrics)
 
-        # New smart summary prompt with <p> and <strong> formatting
         summary_prompt = (
-            f"You are a health assistant generating structured advice. Based on the following health metrics — {chart_summary} — "
-            f"write exactly 4 HTML-formatted paragraphs using <p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>...</p>. "
-            f"Embed each metric inside <strong>...</strong> tags (e.g. <strong>Stress Index: 85%</strong>) within the paragraph. "
-            f"The advice should target a {age}-year-old individual from {country} facing '{concern}'. "
-            f"Relate the values to their possible symptoms or lifestyle. Avoid using 'you'. Use third-person tone. "
-            f"Reference similar individuals of the same age living in Singapore, Malaysia, or Taiwan. Use natural, empathetic language."
+            f"You are a warm, reflective health coach writing a personalized report for a {age}-year-old individual from {country} experiencing '{concern}'. "
+            f"Here are their key health metrics: {chart_summary}. Write exactly 4 emotionally rich, narrative-style paragraphs. "
+            f"Weave these metric values naturally into each paragraph using <strong>Label: 42%</strong> formatting inside full sentences. "
+            f"Use <p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>...</p> for each paragraph. "
+            f"Do not list or explain metrics separately. Create a smooth, human-like narrative that connects emotion, insight, and lifestyle. "
+            f"Reference people of similar age in Singapore, Malaysia, or Taiwan. Never say 'you'—always use third-person phrasing."
         )
         summary = get_openai_response(summary_prompt)
 
