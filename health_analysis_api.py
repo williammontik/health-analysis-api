@@ -146,14 +146,16 @@ def health_analyze():
         metrics = generate_metrics_with_ai(charts(age, gender, country, concern, notes))
         chart_summary = format_chart_summary(metrics)
 
+        # New smart summary prompt with <p> and <strong> formatting
         summary_prompt = (
-            f"Based on the following health metrics — {chart_summary} — "
-            f"write 4 paragraphs of health advice for a {age}-year-old individual from {country} facing '{concern}'. "
-            f"Explain how these metrics may relate to their condition. Avoid using 'you'. Use third-person tone. "
-            f"Reference similar individuals of the same age living in Singapore, Malaysia, or Taiwan."
+            f"You are a health assistant generating structured advice. Based on the following health metrics — {chart_summary} — "
+            f"write exactly 4 HTML-formatted paragraphs using <p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>...</p>. "
+            f"Embed each metric inside <strong>...</strong> tags (e.g. <strong>Stress Index: 85%</strong>) within the paragraph. "
+            f"The advice should target a {age}-year-old individual from {country} facing '{concern}'. "
+            f"Relate the values to their possible symptoms or lifestyle. Avoid using 'you'. Use third-person tone. "
+            f"Reference similar individuals of the same age living in Singapore, Malaysia, or Taiwan. Use natural, empathetic language."
         )
-        summary_raw = get_openai_response(summary_prompt)
-        summary = ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary_raw.split("\n") if p.strip()])
+        summary = get_openai_response(summary_prompt)
 
         creative_raw = get_openai_response(prompts["creative"](age, gender, country, concern, notes), temp=0.85)
         creative = ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative_raw.split("\n") if line.strip()])
