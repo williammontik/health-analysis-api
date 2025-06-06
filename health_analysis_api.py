@@ -1,211 +1,217 @@
-<!-- === START HEALTH WIDGET (ENGLISH, FINAL VERSION) === -->
+# -*- coding: utf-8 -*-
+import os, logging, smtplib, traceback
+from datetime import datetime
+from dateutil import parser
+from email.mime.text import MIMEText
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from openai import OpenAI
 
-<!-- 1) Styles -->
-<style>
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  #hiddenFormHealth { opacity: 0; transform: translateY(20px); transition: opacity .5s, transform .5s; display: none; }
-  #hiddenFormHealth.show { opacity: 1; transform: translateY(0); }
-  #resultContainerHealth { opacity: 0; transition: opacity .5s; display: none; }
-  #resultContainerHealth.show { opacity: 1; display: block; }
-  #resultContainerHealth, #resultContainerHealth * { font-family: sans-serif; font-size: 16px; }
-  .dob-group { display: flex; gap: 10px; }
-  .dob-group select { flex: 1; }
-</style>
+app = Flask(__name__)
+CORS(app)
+logging.basicConfig(level=logging.DEBUG)
 
-<!-- 2) Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-<!-- 3) Next Button -->
-<button id="simulateHealthButton" type="button" style="padding:10px 20px;background:#4CAF50;color:#fff;border:none;border-radius:8px;cursor:pointer;display:none;">
-  Next
-</button>
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
+SMTP_USERNAME = "kata.chatbot@gmail.com"
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
-<!-- 4) Hidden Form -->
-<div id="hiddenFormHealth">
-  <div style="background:#f9f9f9;padding:20px;border-left:6px solid #4CAF50;border-radius:8px;margin:20px 0;">
-    <p style="font-size:18px;font-weight:bold;color:#4CAF50;">🌱 Let’s explore how your health data can unlock new insights.</p>
-    <p style="margin-top:10px;font-size:15px;line-height:1.7;color:#333;">
-      Please fill out the details below. Our system will benchmark your profile against similar individuals to provide meaningful wellness insights.
-    </p>
-    <ul style="font-size:15px;line-height:1.7;padding-left:20px;color:#333;">
-      <li>📊 <strong>Wellness chart:</strong> Based on lifestyle patterns and demographics</li>
-      <li>🧠 <strong>Strategic summary:</strong> AI-generated guidance with tips</li>
-      <li>✅ <strong>PDPA Consent:</strong> Required to begin</li>
-    </ul>
-    <p style="margin-top:10px;font-size:15px;line-height:1.7;color:#333;">
-      Your data is kept confidential and used solely for personalized analysis. 🛡️
-    </p>
-  </div>
-
-  <div style="margin-bottom:20px;display:flex;align-items:center;">
-    <input type="checkbox" id="pdpaCheckboxHealth" style="margin-right:10px;">
-    <label for="pdpaCheckboxHealth">
-      I consent to submit my personal data according to PDPA regulations in Singapore, Malaysia, and Taiwan.
-    </label>
-  </div>
-
-  <form id="healthForm" style="display:flex;flex-direction:column;gap:15px;pointer-events:none;opacity:0.3;">
-    <input type="hidden" name="lang" value="en">
-    <label>👤 Full Name</label>
-    <input type="text" id="name" required disabled>
-    <label>🗓️ Date of Birth</label>
-    <div class="dob-group">
-      <select id="dob_day" disabled required><option value="">Day</option></select>
-      <select id="dob_month" disabled required>
-        <option value="">Month</option>
-        <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
-        <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
-        <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
-        <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
-      </select>
-      <select id="dob_year" disabled required><option value="">Year</option></select>
-    </div>
-    <label>⚧️ Gender</label>
-    <select id="gender" required disabled><option value="">Please Select</option><option>Male</option><option>Female</option></select>
-    <label>📏 Height (cm)</label>
-    <input type="number" id="height" required disabled>
-    <label>⚖️ Weight (kg)</label>
-    <input type="number" id="weight" required disabled>
-    <label>🌍 Country</label>
-    <select id="country" required disabled><option value="">Please Select</option><option>Singapore</option><option>Malaysia</option><option>Taiwan</option></select>
-    <label>📌 Main Concern</label>
-    <select id="condition" required disabled><option value="">Please select</option><option>High Blood Pressure</option><option>Low Blood Pressure</option><option>Diabetes</option><option>High Cholesterol</option><option>Skin Problem</option><option>Other</option></select>
-    <label>📄 Additional Details</label>
-    <textarea id="details" maxlength="300" required disabled></textarea>
-    <label>🤜 Referrer (if any)</label>
-    <input type="text" id="referrer" disabled>
-    <label>🪨 Wellness Pal (optional)</label>
-    <input type="text" id="angel" disabled>
-    <button type="submit" id="submitButtonHealth" style="padding:14px;background:#4CAF50;color:#fff;border:none;border-radius:10px;cursor:pointer;" disabled>🚀 Submit</button>
-  </form>
-</div>
-
-<!-- 5) Spinner + Results -->
-<div id="loadingMessageHealth" style="display:none;text-align:center;margin-top:30px;">
-  <div style="width:60px;height:60px;border:6px solid #ccc;border-top:6px solid #4CAF50;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto;"></div>
-  <p style="color:#4CAF50;margin-top:10px;">🔄 AI is analyzing, please wait…</p>
-</div>
-<div id="resultContainerHealth"></div>
-
-<!-- 6) Reset Button -->
-<div id="resetContainerHealth" style="text-align:center; margin-top:20px; display:none;">
-  <button id="resetButtonHealth" style="padding:14px; background:#2196F3; color:#fff; border:none; border-radius:10px; cursor:pointer;">
-    🔄 Reset
-  </button>
-</div>
-
-<!-- 7) Script -->
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const nextBtn = document.getElementById('simulateHealthButton');
-    const formWrapper = document.getElementById('hiddenFormHealth');
-    const pdpa = document.getElementById('pdpaCheckboxHealth');
-    const form = document.getElementById('healthForm');
-    const spinner = document.getElementById('loadingMessageHealth');
-    const resultDiv = document.getElementById('resultContainerHealth');
-    const resetContainer = document.getElementById('resetButtonHealth').parentElement;
-
-    setTimeout(() => { nextBtn.style.display = 'inline-block'; }, 5000);
-
-    for (let i = 1; i <= 31; i++) {
-      const opt = document.createElement('option');
-      opt.value = i; opt.text = i;
-      document.getElementById('dob_day').appendChild(opt);
+LANGUAGE = {
+    "en": {
+        "email_subject": "Your Health Insight Report",
+        "report_title": "🎉 Global Identical Health Insights"
     }
-    const currentYear = new Date().getFullYear();
-    for (let y = currentYear; y >= 1920; y--) {
-      const opt = document.createElement('option');
-      opt.value = y; opt.text = y;
-      document.getElementById('dob_year').appendChild(opt);
+}
+
+LANGUAGE_TEXTS = {
+    "en": {
+        "name": "Full Name", "dob": "Date of Birth", "country": "Country", "gender": "Gender",
+        "age": "Age", "height": "Height (cm)", "weight": "Weight (kg)", "concern": "Main Concern",
+        "desc": "Brief Description", "ref": "Referrer", "angel": "Wellness Pal",
+        "footer": "📩 This report has been emailed to you. All content is generated by KataChat AI, PDPA-compliant."
     }
+}
 
-    nextBtn.addEventListener('click', () => {
-      formWrapper.style.display = 'block';
-      setTimeout(() => { formWrapper.classList.add('show'); }, 10);
-    });
+def build_summary_prompt(age, gender, country, concern, notes, metrics):
+    metric_lines = []
+    for block in metrics:
+        for label, value in zip(block["labels"], block["values"]):
+            metric_lines.append(f"{label}: {value}%")
+    metric_lines = metric_lines[:9]
+    metrics_summary = ", ".join(metric_lines)
 
-    pdpa.addEventListener('change', () => {
-      const enabled = pdpa.checked;
-      form.querySelectorAll('input, select, textarea, button').forEach(el => el.disabled = !enabled);
-      form.style.opacity = enabled ? '1' : '0.3';
-      form.style.pointerEvents = enabled ? 'auto' : 'none';
-    });
+    return (
+        f"Write a 4-paragraph health insight about a {gender} aged {age} living in {country}, facing the issue '{concern}'. "
+        f"The following health metrics must be mentioned directly and accurately: {metrics_summary}. Notes: {notes}. "
+        f"⚠️ Never use names, pronouns like he/she/they, or phrases like 'this individual'. "
+        f"Use only group-based references like 'women in their 60s in {country}' or 'people in this age group across the region'. "
+        f"Each paragraph must include at least one exact % from the metrics. "
+        f"Tone should be natural, empathetic, and feel like a warm wellness reflection — not robotic or clinical."
+    )
 
-    form.addEventListener('submit', async e => {
-      e.preventDefault();
-      spinner.style.display = 'block';
-      resultDiv.style.display = 'none';
-      resultDiv.classList.remove('show');
-      resultDiv.innerHTML = '';
+def build_suggestions_prompt(age, gender, country, concern, notes):
+    return (
+        f"Suggest 10 specific and gentle lifestyle improvements for a {age}-year-old {gender} from {country} experiencing '{concern}'. "
+        f"Use a warm, supportive tone and include helpful emojis. "
+        f"Make the suggestions practical, culturally appropriate, and nurturing. "
+        f"⚠️ Do not use names, pronouns (she/her/he/his), or phrases like 'this individual'. "
+        f"Only use phrasing like 'women in their 60s in {country}' or 'individuals facing this concern'."
+    )
 
-      const payload = {
-        lang: 'en',
-        name: document.getElementById('name').value.trim(),
-        dob_day: document.getElementById('dob_day').value,
-        dob_month: document.getElementById('dob_month').value,
-        dob_year: document.getElementById('dob_year').value,
-        gender: document.getElementById('gender').value,
-        height: document.getElementById('height').value,
-        weight: document.getElementById('weight').value,
-        country: document.getElementById('country').value,
-        condition: document.getElementById('condition').value,
-        details: document.getElementById('details').value,
-        referrer: document.getElementById('referrer').value,
-        angel: document.getElementById('angel').value
-      };
+def compute_age(dob):
+    try:
+        dt = parser.parse(dob)
+        today = datetime.today()
+        return today.year - dt.year - ((today.month, today.day) < (dt.month, dt.day))
+    except:
+        return 0
 
-      try {
-        const res = await fetch('https://health-analysis-api.onrender.com/health_analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+def get_openai_response(prompt, temp=0.7):
+    try:
+        result = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temp
+        )
+        return result.choices[0].message.content
+    except Exception as e:
+        logging.error(f"OpenAI error: {e}")
+        traceback.print_exc()
+        return "⚠️ Unable to generate response."
 
-        const data = await res.json();
-        spinner.style.display = 'none';
-        resultDiv.style.display = 'block';
-        resultDiv.classList.add('show');
+def generate_metrics_with_ai(prompt):
+    try:
+        res = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        lines = res.choices[0].message.content.strip().split("\n")
+        metrics = []
+        current_title, labels, values = "", [], []
+        for line in lines:
+            if line.startswith("###"):
+                if current_title and labels and values:
+                    metrics.append({"title": current_title, "labels": labels, "values": values})
+                current_title = line.replace("###", "").strip()
+                labels, values = [], []
+            elif ":" in line:
+                try:
+                    label, val = line.split(":", 1)
+                    labels.append(label.strip())
+                    values.append(int(val.strip().replace("%", "")))
+                except:
+                    continue
+        if current_title and labels and values:
+            metrics.append({"title": current_title, "labels": labels, "values": values})
+        return metrics or [{
+            "title": "Diet Quality",
+            "labels": ["Daily intake of saturated fats", "Consumption of fiber-rich foods", "Processed food intake"],
+            "values": [70, 60, 55]
+        }]
+    except Exception as e:
+        logging.error(f"Chart parse error: {e}")
+        traceback.print_exc()
+        return [{
+            "title": "Diet Quality",
+            "labels": ["Daily intake of saturated fats", "Consumption of fiber-rich foods", "Processed food intake"],
+            "values": [70, 60, 55]
+        }]
 
-        if (data.html_result) {
-          const resultContent = document.createElement('div');
-          resultContent.innerHTML = data.html_result;
-          resultDiv.appendChild(resultContent);
+def send_email(html_body, lang):
+    subject = LANGUAGE.get(lang, LANGUAGE["en"])['email_subject']
+    msg = MIMEText(html_body, 'html', 'utf-8')
+    msg['Subject'] = subject
+    msg['From'] = SMTP_USERNAME
+    msg['To'] = SMTP_USERNAME
+    try:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(msg)
+    except Exception as e:
+        logging.error(f"Email send error: {e}")
 
-          const insightNote = document.createElement('div');
-          insightNote.innerHTML = `
-            <div style="margin-top:30px;padding:20px;background:#f0f0f0;border-left:6px solid #4CAF50;border-radius:8px;line-height:1.7;">
-              <strong style="font-size:18px;">📊 Insights Generated by KataChat AI</strong>
-              <p style="margin-top:10px;">This wellness report is generated using KataChat’s proprietary AI models, based on:</p>
-              <ul style="margin:10px 0 10px 20px;padding:0;">
-                <li>A secure database of anonymized health and lifestyle profiles from individuals across Singapore, Malaysia, and Taiwan</li>
-                <li>Aggregated global wellness benchmarks and behavioral trend data from trusted OpenAI research datasets</li>
-              </ul>
-              <p>All analysis complies strictly with PDPA regulations to protect your personal data while uncovering meaningful health insights.</p>
-              <p style="color:#666;margin-top:10px;"><strong>🛡️ Note: This report is not a medical diagnosis. For any serious health concerns, please consult a licensed healthcare professional.</strong></p>
-              <p style="margin-top:10px;">📬 <strong>PS:</strong> A personalized report will also be sent to your email and should arrive within 24–48 hours. If you'd like to explore the findings in more detail, we’d be happy to arrange a short 15-minute call.</p>
+@app.route("/health_analyze", methods=["POST"])
+def health_analyze():
+    try:
+        data = request.get_json(force=True)
+        logging.debug(f"POST received: {data}")
+
+        lang = data.get("lang", "en").strip().lower()
+        labels = LANGUAGE_TEXTS.get(lang, LANGUAGE_TEXTS["en"])
+        content = LANGUAGE.get(lang, LANGUAGE["en"])
+
+        name = data.get("name")
+        dob = f"{data.get('dob_year')}-{str(data.get('dob_month')).zfill(2)}-{str(data.get('dob_day')).zfill(2)}"
+        gender = data.get("gender")
+        height = data.get("height")
+        weight = data.get("weight")
+        country = data.get("country")
+        concern = data.get("condition")
+        notes = data.get("details") or "No additional details"
+        ref = data.get("referrer")
+        angel = data.get("angel")
+        age = compute_age(dob)
+        chart_images = data.get("chart_images", [])
+
+        chart_prompt = (
+            f"A {age}-year-old {gender} from {country} has the health concern '{concern}'. Notes: {notes}. "
+            f"Generate 3 specific health categories starting with ###, each with 3 real-world lifestyle metrics "
+            f"like 'Daily intake of saturated fats: 70%'. Use only human wellness indicators — no placeholders like A, B, C. "
+            f"Ensure 9 total unique metrics between 25%–90%. Avoid duplicates."
+        )
+        metrics = generate_metrics_with_ai(chart_prompt)
+
+        summary_prompt = build_summary_prompt(age, gender, country, concern, notes, metrics)
+        suggestions_prompt = build_suggestions_prompt(age, gender, country, concern, notes)
+
+        summary = get_openai_response(summary_prompt)
+        if "⚠️" in summary:
+            summary = "💬 Summary temporarily unavailable due to system delay."
+
+        creative = get_openai_response(suggestions_prompt, temp=0.85)
+        if "⚠️" in creative:
+            creative = "💡 Suggestions could not be loaded at this time. Please try again later."
+
+        html_result = f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
+        html_result += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary.split("\n") if p.strip()])
+        html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
+        html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
+
+        if chart_images:
+            html_result += "<div style='margin-top:30px;'><strong style='font-size:20px;'>📈 Chart Visualizations:</strong><br><br>"
+            for img in chart_images:
+                html_result += f"<img src='{img}' style='width:100%;max-width:600px;margin-bottom:20px;border:1px solid #ccc;border-radius:8px;'><br>"
+            html_result += "</div>"
+
+        html_result += """
+            <br><div style="background-color:#f9f9f9; color:#333333; padding:20px; border-left:6px solid #4CAF50;
+            border-radius:8px; margin-top:30px; font-size:15px; line-height:1.7;">
+                <strong style="font-size:17px;">📊 Insights Generated by KataChat AI</strong><br><br>
+                This wellness report is generated using KataChat’s proprietary AI models, based on:<br>
+                • A secure database of anonymized health and lifestyle profiles from individuals across Singapore, Malaysia, and Taiwan<br>
+                • Aggregated global wellness benchmarks and behavioral trend data from trusted OpenAI research datasets<br><br>
+                All analysis complies strictly with PDPA regulations to protect your personal data while uncovering meaningful health insights.<br><br>
+                🛡️ <strong>Note:</strong> This report is not a medical diagnosis. For any serious health concerns, please consult a licensed healthcare professional.<br><br>
+                📬 <strong>PS:</strong> A personalized report will also be sent to your email and should arrive within 24–48 hours. If you'd like to explore the findings in more detail, we’d be happy to arrange a short 15-minute call.
             </div>
-          `;
-          resultDiv.appendChild(insightNote);
+        """
 
-          form.querySelectorAll('input, select, textarea, button').forEach(el => el.disabled = true);
-          form.style.opacity = '0.3';
-          form.style.pointerEvents = 'none';
-          resetContainer.style.display = 'block';
-        } else {
-          resultDiv.innerHTML = '<p style="color:red;">⚠️ Unable to generate analysis. Please try again later.</p>';
-        }
-      } catch (err) {
-        console.error(err);
-        spinner.style.display = 'none';
-        resultDiv.style.display = 'block';
-        resultDiv.innerText = '⚠️ An error occurred — check the console.';
-      }
-    });
+        send_email(html_result, lang)
 
-    document.getElementById('resetButtonHealth').addEventListener('click', () => {
-      window.location.href = "https://katachat.online";
-    });
-  });
-</script>
+        return jsonify({
+            "metrics": metrics,
+            "html_result": html_result,
+            "footer": labels['footer']
+        })
 
-<!-- === END HEALTH WIDGET (ENGLISH, FINAL) === -->
+    except Exception as e:
+        logging.error(f"Health analyze error: {e}")
+        traceback.print_exc()
+        return jsonify({"error": "Server error"}), 500
+
+if __name__ == "__main__":
+    app.run(debug=True, port=int(os.getenv("PORT", 5000)), host="0.0.0.0")
