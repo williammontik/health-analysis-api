@@ -187,18 +187,6 @@ def health_analyze():
                 html_result += f"<img src='{img}' style='width:100%;max-width:600px;margin-bottom:20px;border:1px solid #ccc;border-radius:8px;'><br>"
             html_result += "</div>"
 
-        html_result += """
-            <br><div style='background-color:#f9f9f9;color:#333;padding:20px;border-left:6px solid #4CAF50;
-            border-radius:8px;margin-top:30px;'>
-                <strong>📊 Insights Generated From:</strong>
-                <ul style='margin-top:10px;margin-bottom:10px;padding-left:20px;line-height:1.7;'>
-                    <li>Data from anonymized individuals across Singapore, Malaysia, and Taiwan</li>
-                    <li>Wellness trend analysis and lifestyle benchmarking by KataChat AI</li>
-                </ul>
-                <p style='margin-top:10px;line-height:1.7;'>🛡️ This is not a medical diagnosis. For serious health concerns, please consult a licensed professional.</p>
-            </div>
-        """
-
         send_email(html_result, lang)
 
         return jsonify({
