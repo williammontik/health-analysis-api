@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, traceback
+import os, logging, smtplib, traceback, re
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -176,8 +176,11 @@ def health_analyze():
         if "⚠️" in creative:
             creative = "💡 Suggestions could not be loaded at this time. Please try again later."
 
+        summary_clean = re.sub(r'(\n\s*\n)+', '\n\n', summary.strip())
+
         html_result = f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
-        html_result += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary.split("\n") if p.strip()])
+        html_result += f"<div style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{summary_clean.replace(chr(10), '<br><br>')}</div>"
+
         html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
         html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
 
