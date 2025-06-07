@@ -225,6 +225,7 @@ def health_analyze():
                 charts_html += f"<img src='{img}' style='width:100%;max-width:600px;margin-bottom:20px;border:1px solid #ccc;border-radius:8px;'><br>"
             charts_html += "</div>"
 
+        # ✅ FINAL FIX: Include charts in the email
         full_email_html = data_table + html_result + charts_html
         send_email(full_email_html, lang)
 
