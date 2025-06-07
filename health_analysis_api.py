@@ -156,7 +156,6 @@ def health_analyze():
         ref = data.get("referrer")
         angel = data.get("angel")
         age = compute_age(dob)
-        chart_images = data.get("chart_images", [])
 
         chart_prompt = (
             f"A {age}-year-old {gender} from {country} has the health concern '{concern}'. Notes: {notes}. "
@@ -177,10 +176,9 @@ def health_analyze():
         if "⚠️" in creative:
             creative = "💡 Suggestions could not be loaded at this time. Please try again later."
 
-        summary_clean = re.sub(r'(\n\s*\n)+', '\n\n', summary.strip())
-
+        summary_clean = re.sub(r'(\n\s*\n)+', '\n', summary.strip())
         html_result = f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
-        html_result += f"<div style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{summary_clean.replace(chr(10), '<br><br>')}</div>"
+        html_result += f"<div style='line-height:1.7; font-size:16px; margin-bottom:4px;'>{summary_clean.replace(chr(10), '<br>')}</div>"
 
         html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
         html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
@@ -218,14 +216,20 @@ def health_analyze():
         </div>
         """
 
-        charts_html = ""
-        if chart_images:
-            charts_html += "<div style='margin-top:30px;'><strong style='font-size:18px;'>📈 Chart Visualizations:</strong><br><br>"
-            for img in chart_images:
-                charts_html += f"<img src='{img}' style='width:100%;max-width:600px;margin-bottom:20px;border:1px solid #ccc;border-radius:8px;'><br>"
-            charts_html += "</div>"
+        charts_html = "<div style='margin-top:30px;'><strong style='font-size:18px;'>📈 Health Metrics Breakdown:</strong><br><br>"
+        for block in metrics:
+            charts_html += f"<h4 style='margin-bottom:6px; margin-top:20px;'>{block['title']}</h4>"
+            for label, value in zip(block['labels'], block['values']):
+                charts_html += f"""
+                <div style='margin:6px 0;'>
+                    <span style='font-size:15px;'>{label}: {value}%</span><br>
+                    <div style='background:#eee; border-radius:6px; width:100%; max-width:500px; height:14px;'>
+                        <div style='width:{value}%; background:#4CAF50; height:14px; border-radius:6px;'></div>
+                    </div>
+                </div>
+                """
+        charts_html += "</div>"
 
-        # ✅ FINAL FIX: Include charts in the email
         full_email_html = data_table + html_result + charts_html
         send_email(full_email_html, lang)
 
