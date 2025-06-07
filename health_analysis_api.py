@@ -170,7 +170,7 @@ def health_analyze():
             '• Aggregated global wellness benchmarks and behavioral trend data from trusted OpenAI research datasets<br><br>'
             'All analysis complies strictly with PDPA regulations to protect your personal data while uncovering meaningful health insights.<br><br>'
             '🛡️ <strong>Note:</strong> This report is not a medical diagnosis. For any serious health concerns, please consult a licensed healthcare professional.<br><br>'
-            '📬 <strong>PS:</strong> A personalized report will also be sent to your email and should arrive within 24–48 hours. If you'd like to explore the findings in more detail, we’d be happy to arrange a short 15-minute call.'</div>'
+            '📬 <strong>PS:</strong> A personalized report will also be sent to your email and should arrive within 24–48 hours. If you'd like to explore the findings in more detail, we'd be happy to arrange a short 15-minute call.'</div>'
         )
 
         full_html = info_html + chart_html + summary_html + tips_html + footer
