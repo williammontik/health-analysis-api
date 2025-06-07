@@ -145,6 +145,7 @@ def health_analyze():
         content = LANGUAGE.get(lang, LANGUAGE["en"])
 
         name = data.get("name")
+        chinese_name = data.get("chinese_name")
         dob = f"{data.get('dob_year')}-{str(data.get('dob_month')).zfill(2)}-{str(data.get('dob_day')).zfill(2)}"
         gender = data.get("gender")
         height = data.get("height")
@@ -184,12 +185,6 @@ def health_analyze():
         html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
         html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
 
-        if chart_images:
-            html_result += "<div style='margin-top:30px;'><strong style='font-size:20px;'>📈 Chart Visualizations:</strong><br><br>"
-            for img in chart_images:
-                html_result += f"<img src='{img}' style='width:100%;max-width:600px;margin-bottom:20px;border:1px solid #ccc;border-radius:8px;'><br>"
-            html_result += "</div>"
-
         html_result += """
             <br><div style="background-color:#f9f9f9; color:#333333; padding:20px; border-left:6px solid #4CAF50;
             border-radius:8px; margin-top:30px; font-size:15px; line-height:1.7;">
@@ -203,7 +198,36 @@ def health_analyze():
             </div>
         """
 
-        send_email(html_result, lang)
+        # Build final email content
+        data_table = f"""
+        <div style='margin-top:20px; font-size:16px;'>
+          <strong>📌 Submitted Info:</strong><br><br>
+          <ul style='line-height:1.8; padding-left:18px;'>
+            <li><strong>{labels['name']}:</strong> {name}</li>
+            <li><strong>🈶 Chinese Name:</strong> {chinese_name}</li>
+            <li><strong>{labels['dob']}:</strong> {dob}</li>
+            <li><strong>{labels['age']}:</strong> {age}</li>
+            <li><strong>{labels['gender']}:</strong> {gender}</li>
+            <li><strong>{labels['country']}:</strong> {country}</li>
+            <li><strong>{labels['height']}:</strong> {height} cm</li>
+            <li><strong>{labels['weight']}:</strong> {weight} kg</li>
+            <li><strong>{labels['concern']}:</strong> {concern}</li>
+            <li><strong>{labels['desc']}:</strong> {notes}</li>
+            <li><strong>{labels['ref']}:</strong> {ref}</li>
+            <li><strong>{labels['angel']}:</strong> {angel}</li>
+          </ul>
+        </div>
+        """
+
+        charts_html = ""
+        if chart_images:
+            charts_html += "<div style='margin-top:30px;'><strong style='font-size:18px;'>📈 Chart Visualizations:</strong><br><br>"
+            for img in chart_images:
+                charts_html += f"<img src='{img}' style='width:100%;max-width:600px;margin-bottom:20px;border:1px solid #ccc;border-radius:8px;'><br>"
+            charts_html += "</div>"
+
+        full_email_html = data_table + html_result + charts_html
+        send_email(full_email_html, lang)
 
         return jsonify({
             "metrics": metrics,
