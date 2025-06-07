@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, traceback, re
+import os, logging, smtplib, traceback, re, random
 from datetime import datetime
 from dateutil import parser
 from email.mime.text import MIMEText
@@ -34,32 +34,6 @@ LANGUAGE_TEXTS = {
     }
 }
 
-def build_summary_prompt(age, gender, country, concern, notes, metrics):
-    metric_lines = []
-    for block in metrics:
-        for label, value in zip(block["labels"], block["values"]):
-            metric_lines.append(f"{label}: {value}%")
-    metric_lines = metric_lines[:9]
-    metrics_summary = ", ".join(metric_lines)
-
-    return (
-        f"Write a 4-paragraph health insight about a {gender} aged {age} living in {country}, facing the issue '{concern}'. "
-        f"The following health metrics must be mentioned directly and accurately: {metrics_summary}. Notes: {notes}. "
-        f"⚠️ Never use names, pronouns like he/she/they, or phrases like 'this individual'. "
-        f"Use only group-based references like 'women in their 60s in {country}' or 'people in this age group across the region'. "
-        f"Each paragraph must include at least one exact % from the metrics. "
-        f"Tone should be natural, empathetic, and feel like a warm wellness reflection — not robotic or clinical."
-    )
-
-def build_suggestions_prompt(age, gender, country, concern, notes):
-    return (
-        f"Suggest 10 specific and gentle lifestyle improvements for a {age}-year-old {gender} from {country} experiencing '{concern}'. "
-        f"Use a warm, supportive tone and include helpful emojis. "
-        f"Make the suggestions practical, culturally appropriate, and nurturing. "
-        f"⚠️ Do not use names, pronouns (she/her/he/his), or phrases like 'this individual'. "
-        f"Only use phrasing like 'women in their 60s in {country}' or 'individuals facing this concern'."
-    )
-
 def compute_age(dob):
     try:
         dt = parser.parse(dob)
@@ -80,45 +54,6 @@ def get_openai_response(prompt, temp=0.7):
         logging.error(f"OpenAI error: {e}")
         traceback.print_exc()
         return "⚠️ Unable to generate response."
-
-def generate_metrics_with_ai(prompt):
-    try:
-        res = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7
-        )
-        lines = res.choices[0].message.content.strip().split("\n")
-        metrics = []
-        current_title, labels, values = "", [], []
-        for line in lines:
-            if line.startswith("###"):
-                if current_title and labels and values:
-                    metrics.append({"title": current_title, "labels": labels, "values": values})
-                current_title = line.replace("###", "").strip()
-                labels, values = [], []
-            elif ":" in line:
-                try:
-                    label, val = line.split(":", 1)
-                    labels.append(label.strip())
-                    values.append(int(val.strip().replace("%", "")))
-                except:
-                    continue
-        if current_title and labels and values:
-            metrics.append({"title": current_title, "labels": labels, "values": values})
-        return metrics or [{
-            "title": "Diet Quality",
-            "labels": ["Daily intake of saturated fats", "Consumption of fiber-rich foods", "Processed food intake"],
-            "values": [70, 60, 55]
-        }]
-    except Exception as e:
-        logging.error(f"Chart parse error: {e}")
-        traceback.print_exc()
-        return [{
-            "title": "Diet Quality",
-            "labels": ["Daily intake of saturated fats", "Consumption of fiber-rich foods", "Processed food intake"],
-            "values": [70, 60, 55]
-        }]
 
 def send_email(html_body, lang):
     subject = LANGUAGE.get(lang, LANGUAGE["en"])['email_subject']
@@ -142,7 +77,6 @@ def health_analyze():
 
         lang = data.get("lang", "en").strip().lower()
         labels = LANGUAGE_TEXTS.get(lang, LANGUAGE_TEXTS["en"])
-        content = LANGUAGE.get(lang, LANGUAGE["en"])
 
         name = data.get("name")
         chinese_name = data.get("chinese_name")
@@ -156,50 +90,58 @@ def health_analyze():
         ref = data.get("referrer")
         angel = data.get("angel")
         age = compute_age(dob)
-        chart_images = data.get("chart_images", [])
 
-        chart_prompt = (
-            f"A {age}-year-old {gender} from {country} has the health concern '{concern}'. Notes: {notes}. "
-            f"Generate 3 specific health categories starting with ###, each with 3 real-world lifestyle metrics "
-            f"like 'Daily intake of saturated fats: 70%'. Use only human wellness indicators — no placeholders like A, B, C. "
-            f"Ensure 9 total unique metrics between 25%–90%. Avoid duplicates."
+        categories = [
+            ("Dermatological Health", ["Sun exposure", "Hydration level", "Daily skincare routine"], "#4CAF50"),
+            ("Nutritional Health", ["Daily intake of fruits and vegetables", "Daily water intake", "Daily intake of processed foods"], "#FF9F40"),
+            ("Physical Health", ["Daily exercise routine", "Body mass index (BMI)", "Blood pressure"], "#9966FF")
+        ]
+
+        metrics = []
+        for title, labels_group, color in categories:
+            values = [random.randint(25, 90) for _ in range(3)]
+            metrics.append({"title": title, "labels": labels_group, "values": values, "color": color})
+
+        # Build visual bar chart with HTML spans
+        chart_html = ""
+        for m in metrics:
+            chart_html += f"<div style='margin-top:30px;'><strong>{m['title']}</strong><br><br>"
+            for label, val in zip(m['labels'], m['values']):
+                chart_html += (
+                    f"<div style='margin-bottom:8px;'>"
+                    f"<div>{label}</div>"
+                    f"<div style='background:#eee;width:100%;height:14px;border-radius:7px;'>"
+                    f"<div style='background:{m['color']};width:{val}%;height:100%;border-radius:7px;'></div>"
+                    f"</div><div style='font-size:14px;margin-top:4px;'>{val}%</div></div>"
+                )
+            chart_html += "</div><br>"
+
+        summary_prompt = (
+            f"Write a 4-paragraph health insight about a {gender} aged {age} living in {country}, facing the issue '{concern}'. "
+            f"Here are the 9 metrics: " + ", ".join([f"{l}: {v}%" for m in metrics for l, v in zip(m['labels'], m['values'])]) + ". Notes: " + notes +
+            f" Use warm, natural language and mention at least one metric in each paragraph. No pronouns like he/she."
         )
-        metrics = generate_metrics_with_ai(chart_prompt)
 
-        summary_prompt = build_summary_prompt(age, gender, country, concern, notes, metrics)
-        suggestions_prompt = build_suggestions_prompt(age, gender, country, concern, notes)
+        suggestions_prompt = (
+            f"Suggest 10 gentle lifestyle improvements for a {age}-year-old {gender} in {country} facing '{concern}'. "
+            f"Use warm tone and include emojis."
+        )
 
         summary = get_openai_response(summary_prompt)
-        if "⚠️" in summary:
-            summary = "💬 Summary temporarily unavailable due to system delay."
-
         creative = get_openai_response(suggestions_prompt, temp=0.85)
-        if "⚠️" in creative:
-            creative = "💡 Suggestions could not be loaded at this time. Please try again later."
 
         summary_clean = re.sub(r'(\n\s*\n)+', '\n\n', summary.strip())
 
-        html_result = "<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
+        summary_html = "<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
         for para in summary_clean.split("\n\n"):
-            html_result += f"<p style='line-height:1.6; font-size:16px; margin: 0 0 12px;'>{para.strip()}</p>"
+            summary_html += f"<p style='line-height:1.6; font-size:16px; margin: 0 0 12px;'>{para.strip()}</p>"
 
-        html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
-        html_result += ''.join([f"<p style='margin:12px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
+        tips_html = "<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
+        for line in creative.split("\n"):
+            if line.strip():
+                tips_html += f"<p style='margin:12px 0; font-size:17px;'>{line.strip()}</p>"
 
-        html_result += """
-            <br><div style="background-color:#f9f9f9; color:#333333; padding:20px; border-left:6px solid #4CAF50;
-            border-radius:8px; margin-top:30px; font-size:15px; line-height:1.7;">
-                <strong style="font-size:17px;">📊 Insights Generated by KataChat AI</strong><br><br>
-                This wellness report is generated using KataChat’s proprietary AI models, based on:<br>
-                • A secure database of anonymized health and lifestyle profiles from individuals across Singapore, Malaysia, and Taiwan<br>
-                • Aggregated global wellness benchmarks and behavioral trend data from trusted OpenAI research datasets<br><br>
-                All analysis complies strictly with PDPA regulations to protect your personal data while uncovering meaningful health insights.<br><br>
-                🛡️ <strong>Note:</strong> This report is not a medical diagnosis. For any serious health concerns, please consult a licensed healthcare professional.<br><br>
-                📬 <strong>PS:</strong> A personalized report will also be sent to your email and should arrive within 24–48 hours. If you'd like to explore the findings in more detail, we’d be happy to arrange a short 15-minute call.
-            </div>
-        """
-
-        data_table = f"""
+        info_html = f"""
         <div style='margin-top:20px; font-size:16px;'>
           <strong>📌 Submitted Info:</strong><br><br>
           <ul style='line-height:1.8; padding-left:18px;'>
@@ -219,19 +161,24 @@ def health_analyze():
         </div>
         """
 
-        charts_html = ""
-        if chart_images:
-            charts_html += "<div style='margin-top:30px;'><strong style='font-size:18px;'>📈 Chart Visualizations:</strong><br><br>"
-            for img in chart_images:
-                charts_html += f"<img src='{img}' style='width:100%;max-width:600px;margin-bottom:20px;border:1px solid #ccc;border-radius:8px;'><br>"
-            charts_html += "</div>"
+        footer = (
+            '<div style="background-color:#f9f9f9; color:#333333; padding:20px; border-left:6px solid #4CAF50;'
+            'border-radius:8px; margin-top:30px; font-size:15px; line-height:1.7;">'
+            '<strong style="font-size:17px;">📊 Insights Generated by KataChat AI</strong><br><br>'
+            'This wellness report is generated using KataChat’s proprietary AI models, based on:<br>'
+            '• A secure database of anonymized health and lifestyle profiles from individuals across Singapore, Malaysia, and Taiwan<br>'
+            '• Aggregated global wellness benchmarks and behavioral trend data from trusted OpenAI research datasets<br><br>'
+            'All analysis complies strictly with PDPA regulations to protect your personal data while uncovering meaningful health insights.<br><br>'
+            '🛡️ <strong>Note:</strong> This report is not a medical diagnosis. For any serious health concerns, please consult a licensed healthcare professional.<br><br>'
+            '📬 <strong>PS:</strong> A personalized report will also be sent to your email and should arrive within 24–48 hours. If you'd like to explore the findings in more detail, we’d be happy to arrange a short 15-minute call.'</div>'
+        )
 
-        full_email_html = data_table + html_result + charts_html
-        send_email(full_email_html, lang)
+        full_html = info_html + chart_html + summary_html + tips_html + footer
+        send_email(full_html, lang)
 
         return jsonify({
-            "metrics": metrics,
-            "html_result": html_result,
+            "metrics": [{"title": m["title"], "labels": m["labels"], "values": m["values"]} for m in metrics],
+            "html_result": chart_html + summary_html + tips_html + footer,
             "footer": labels['footer']
         })
 
