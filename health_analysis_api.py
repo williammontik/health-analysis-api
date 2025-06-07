@@ -179,11 +179,12 @@ def health_analyze():
 
         summary_clean = re.sub(r'(\n\s*\n)+', '\n\n', summary.strip())
 
-        html_result = f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
-        html_result += f"<div style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{summary_clean.replace(chr(10), '<br><br>')}</div>"
+        html_result = "<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
+        for para in summary_clean.split("\n\n"):
+            html_result += f"<p style='line-height:1.6; font-size:16px; margin: 0 0 12px;'>{para.strip()}</p>"
 
         html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
-        html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
+        html_result += ''.join([f"<p style='margin:12px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
 
         html_result += """
             <br><div style="background-color:#f9f9f9; color:#333333; padding:20px; border-left:6px solid #4CAF50;
@@ -198,7 +199,6 @@ def health_analyze():
             </div>
         """
 
-        # Build final email content
         data_table = f"""
         <div style='margin-top:20px; font-size:16px;'>
           <strong>📌 Submitted Info:</strong><br><br>
