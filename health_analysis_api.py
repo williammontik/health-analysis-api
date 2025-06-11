@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-import os, logging, smtplib, traceback, re
+import os
+import logging
+import smtplib
+import traceback
+import re
 from datetime import datetime
 from email.mime.text import MIMEText
 from flask import Flask, request, jsonify
@@ -13,14 +17,14 @@ logging.basicConfig(level=logging.INFO)
 # --- CONFIGURATION ---
 try:
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    logging.info("OpenAI client initialized successfully.")
 except Exception as e:
     logging.critical(f"OpenAI API key not found or invalid. Please set the OPENAI_API_KEY environment variable. Error: {e}")
-    # Exit or handle gracefully if the API key is essential for startup
-    # For this script, we'll let it proceed but it will fail on API calls.
+    client = None # Set client to None to handle errors gracefully later
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
-SMTP_USERNAME = "kata.chatbot@gmail.com" # Replace with your email if needed
+SMTP_USERNAME = "kata.chatbot@gmail.com"  # Replace with your email if needed
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
 # --- LANGUAGE DATA (ENGLISH) ---
@@ -73,11 +77,11 @@ def compute_age(dob_year):
     try:
         return datetime.now().year - int(dob_year)
     except (ValueError, TypeError):
-        return 0 # Default age if year is invalid
+        return 0  # Default age if year is invalid
 
 def get_openai_response(prompt, temp=0.75):
     if not client:
-        raise Exception("OpenAI client not initialized. Check API Key.")
+        raise Exception("OpenAI client not initialized. Check server logs for API Key issues.")
     try:
         result = client.chat.completions.create(
             model="gpt-4o",
@@ -95,7 +99,6 @@ def generate_metrics_with_ai(prompt):
         content = get_openai_response(prompt)
         metrics, current_title, labels, values = [], "", [], []
         
-        # Robust parsing
         for line in content.strip().split("\n"):
             line = line.strip()
             if not line: continue
@@ -108,7 +111,6 @@ def generate_metrics_with_ai(prompt):
             elif ":" in line:
                 try:
                     label, val_str = line.split(":", 1)
-                    # Use regex to find the first number in the string
                     val_match = re.search(r'\d+', val_str)
                     if val_match:
                         labels.append(label.strip())
@@ -120,7 +122,6 @@ def generate_metrics_with_ai(prompt):
         if current_title and labels and values:
             metrics.append({"title": current_title, "labels": labels, "values": values})
 
-        # Fallback if AI response is malformed or empty
         if not metrics:
             logging.warning("AI did not return metrics in the expected format. Using default metrics.")
             return [{"title": "Default Metrics", "labels": ["Data Point A", "Data Point B", "Data Point C"], "values": [65, 75, 85]}]
@@ -129,6 +130,25 @@ def generate_metrics_with_ai(prompt):
     except Exception as e:
         logging.error(f"Chart metric generation failed: {e}")
         return [{"title": "Error Generating Metrics", "labels": ["Please check server logs"], "values": [50]}]
+
+def send_email_notification(html_body):
+    # This feature remains incomplete as per the original code.
+    # Requires building out the email body and ensuring SMTP credentials are valid.
+    if not SMTP_PASSWORD:
+        logging.warning("SMTP_PASSWORD not set. Skipping email notification.")
+        return
+    msg = MIMEText(html_body, 'html', 'utf-8')
+    msg['Subject'] = EMAIL_SUBJECT
+    msg['From'] = SMTP_USERNAME
+    msg['To'] = SMTP_USERNAME # Sends email to yourself
+    try:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(msg)
+            logging.info("Email notification sent successfully.")
+    except Exception as e:
+        logging.error(f"Email sending failed: {e}")
 
 # --- MAIN API ENDPOINT ---
 @app.route("/health_analyze", methods=["POST"])
@@ -148,7 +168,6 @@ def health_analyze():
         gender = data.get("gender")
         country = data.get("country")
         condition = data.get("condition")
-        # Sanitize details slightly for safety, although prompt delimiters are the main protection
         details = data.get("details", "N/A").replace("'''", "'")
 
         # 1. Generate Metrics
@@ -178,6 +197,26 @@ def health_analyze():
 
         html_result += f"<div style='font-size:18px; font-weight:bold; margin-top:40px;'>{LABELS['disclaimer_title']}</div>"
         html_result += f"<p style='font-size:15px; line-height:1.6;'>{LABELS['disclaimer_text']}</p>"
+
+        # **ADDED:** The detailed footer section as requested.
+        footer_html = f"""
+        <div style="margin-top:40px; padding:20px; background-color:#f8f9fa; border-top: 2px solid #e9ecef; border-radius: 8px;">
+            <h4 style="font-size: 16px; font-weight: bold; margin-top:0; margin-bottom:10px;">AI Insights Generated From:</h4>
+            <ul style="font-size: 14px; color: #555; padding-left: 20px; margin-bottom: 20px; line-height: 1.6;">
+                <li>Data from anonymized professionals across Singapore, Malaysia, and Taiwan</li>
+                <li>Investor sentiment models & trend benchmarks from OpenAI and global markets</li>
+                <li>All data is PDPA-compliant and never stored. Our AI systems detect statistically significant patterns without referencing any individual record.</li>
+            </ul>
+            <p style="font-size: 14px; color: #333; line-height: 1.7; font-style: italic;">
+                <strong>PS:</strong> This initial insight is just the beginning. A more personalized, data-specific report — reflecting the full details you’ve provided — will be prepared and delivered to your inbox within 24 to 48 hours. This allows our AI systems to cross-reference your profile with nuanced regional and sector-specific benchmarks, ensuring sharper recommendations tailored to your exact challenge. If you'd like to speak sooner, we’d be glad to arrange a 15-minute call at your convenience.
+            </p>
+        </div>
+        """
+        html_result += footer_html
+        
+        # Optional: Send email notification (this part is not fully implemented)
+        # email_body = "Build the full HTML for the email here..."
+        # send_email_notification(email_body)
 
         return jsonify({"metrics": metrics, "html_result": html_result})
 
