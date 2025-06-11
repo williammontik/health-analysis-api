@@ -34,21 +34,22 @@ LANGUAGE_TEXTS = {
     }
 }
 
+# === PROMPT IMPROVEMENT: Rewritten for richer, more insightful content ===
 def build_summary_prompt(age, gender, country, concern, notes, metrics):
     metric_lines = []
     for block in metrics:
         for label, value in zip(block["labels"], block["values"]):
             metric_lines.append(f"{label}: {value}%")
-    metric_lines = metric_lines[:9]
-    metrics_summary = ", ".join(metric_lines)
+    metrics_summary = ", ".join(metric_lines[:9])
 
     return (
-        f"Write a 4-paragraph health insight for individuals in {country} who are experiencing the concern: '{concern}'. "
-        f"Focus on trends observed among people in a similar age group (around {age}) and gender ('{gender}'). "
-        f"The following health metrics must be mentioned directly and accurately: {metrics_summary}. Notes: {notes}. "
-        f"⚠️ Do NOT use any personal pronouns (like you/he/she/they) or phrases like 'this individual'. "
-        f"Use only group-style phrasing such as 'people in this age group in {country}' or 'young women in {country}'. "
-        f"Each paragraph must include at least one exact % from the metrics. Tone must be warm, natural, and empathetic — avoid robotic or clinical writing."
+        f"Analyze the health profile of a {age}-year-old {gender} from {country} with a primary concern of '{concern}'. Additional notes: '{notes}'. "
+        f"Craft a comprehensive, 4-paragraph narrative summary based on these key metrics: {metrics_summary}. "
+        f"Instructions for the summary:\n"
+        f"1.  **Tone & Style:** Adopt the persona of an expert, empathetic health analyst. The tone must be insightful and encouraging, not clinical or robotic. Weave the data into a holistic story.\n"
+        f"2.  **Content Depth:** Don't just list the numbers. Explain their significance. For example, connect a metric like 'Processed food intake at 70%' to the concern of 'High Blood Pressure'. Explain *how* these factors are often related for this demographic in {country}.\n"
+        f"3.  **Group Phrasing Only:** Strictly avoid personal pronouns (you, your, their). Use phrases like 'For individuals in this age group...', 'This profile often suggests...', or 'In {country}, it's common for women around {age} to...'.\n"
+        f"4.  **Structure:** Ensure the output is exactly 4 distinct paragraphs, each rich in content and connecting different aspects of the health data to provide a meaningful, coherent insight."
     )
 
 def build_suggestions_prompt(age, gender, country, concern, notes):
@@ -178,10 +179,12 @@ def health_analyze():
         creative = get_openai_response(suggestions_prompt, temp=0.85)
         if "⚠️" in creative:
             creative = "💡 Suggestions could not be loaded at this time. Please try again later."
-
-        summary_clean = re.sub(r'(\n\s*\n)+', '\n', summary.strip())
-        html_result = f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
-        html_result += f"<div style='line-height:1.7; font-size:16px; margin-bottom:4px;'>{summary_clean.replace(chr(10), '<br>')}</div>"
+        
+        # === FORMATTING FIX: Use <p> tags for proper paragraph spacing ===
+        html_result = "<div style='font-size:24px; font-weight:bold; margin-top:30px;'>🧠 Summary:</div><br>"
+        # Split the summary by newline and wrap each part in a paragraph tag
+        summary_paragraphs = [p.strip() for p in summary.split('\n') if p.strip()]
+        html_result += ''.join([f"<p style='line-height:1.7; font-size:16px; margin-bottom:16px;'>{p}</p>" for p in summary_paragraphs])
 
         html_result += f"<div style='font-size:24px; font-weight:bold; margin-top:30px;'>💡 Creative Suggestions:</div><br>"
         html_result += ''.join([f"<p style='margin:16px 0; font-size:17px;'>{line}</p>" for line in creative.split("\n") if line.strip()])
